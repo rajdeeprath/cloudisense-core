@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from mekanixe.core.constants import *
 from mekanixe.core.event import *
 from mekanixe.core.abstracts import ITaskExecutor, IntentProvider, TargetProcess, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
-from mekanixe.exceptions import ActionError, RulesError, RPCError, ModuleNotFoundError
+from mekanixe.core.exceptions import ActionError, RulesError, RPCError, ModuleNotFoundError
 from mekanixe.core.intent import built_in_intents, INTENT_PREFIX
 from mekanixe.core.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from mekanixe.core.types import Modules
