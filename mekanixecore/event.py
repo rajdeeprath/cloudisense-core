@@ -17,9 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import datetime
-from mekanixe.core.constants import EVENT_STATE_PROGRESS, EVENT_STATE_START, EVENT_STATE_STOP, TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
-from typing import Dict, Text, Any, List, Optional, Union
+
 from builtins import int
+from typing import Dict, Text, Any, Optional
+
+from mekanixecore.constants import TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
 
 
 

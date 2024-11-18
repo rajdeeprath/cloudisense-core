@@ -15,12 +15,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-from typing import Any, Dict
 
-import distro
-from mekanixe.core.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
-from mekanixe.core.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from mekanixe.core.event import DataEvent, SimpleNotificationEvent
+import ntpath
+import os
+import json
+import filetype
+import base64
+
+
+from typing import Dict
 from tornado import httputil
 from urllib import parse
 from jsonschema import validate
@@ -28,11 +31,10 @@ from datetime import datetime
 from collections import deque
 from sys import platform
 
-import ntpath
-import os
-import json
-import filetype
-import base64
+
+from mekanixecore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
+from mekanixecore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
+from mekanixecore.event import DataEvent, SimpleNotificationEvent
 
 
 

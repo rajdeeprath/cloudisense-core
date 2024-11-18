@@ -17,48 +17,45 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
-from mekanixe.core.constants import *
-from mekanixe.core.event import *
-from mekanixe.core.abstracts import ITaskExecutor, IntentProvider, TargetProcess, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
-from mekanixe.core.exceptions import ActionError, RulesError, RPCError, ModuleNotFoundError
-from mekanixe.core.intent import built_in_intents, INTENT_PREFIX
-from mekanixe.core.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
-from mekanixe.core.types import Modules
-from mekanixe.core.event import EVENT_KEY
-from mekanixe.core.constants import built_in_client_types
-
-
-from typing import Dict,Any
-from typing_extensions import TypedDict
-import logging
-import tornado
-from tornado.queues import Queue
-import json
-from smalluuid import SmallUUID
-from time import time
-from typing import Text
-from typing import List
-from builtins import str
-import copy
-from tornado.ioloop import IOLoop
-from concurrent.futures.thread import ThreadPoolExecutor
-from mekanixe.exceptions import ConfigurationLoadError
-from tornado.websocket import websocket_connect
-from string import ascii_letters
-
 
 import uuid
-import sys
-import datetime
-import asyncio
 import json
 import logging
 import os
+import random
+import logging
+import tornado
+import copy
+
+from typing import Dict
+from tornado.queues import Queue
+from smalluuid import SmallUUID
+from time import time
+from typing import Text, List
+from builtins import str
+from tornado.ioloop import IOLoop
+from concurrent.futures.thread import ThreadPoolExecutor
+from tornado.websocket import websocket_connect
+from string import ascii_letters
+
+from mekanixecore.constants import *
+from mekanixecore.event import *
+from mekanixecore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
+from mekanixecore.exceptions import ActionError
+from mekanixecore.intent import built_in_intents, INTENT_PREFIX
+from mekanixecore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
+from mekanixecore.types import Modules
+from mekanixecore.event import EVENT_KEY
+from mekanixecore.constants import built_in_client_types
+from mekanixecore.exceptions import ConfigurationLoadError
+
+
 
 
 class Configuration(object):
     '''
-    classdocs
+    classdoimport random
+cs
     '''
 
     def __init__(self, conf_file):
@@ -69,10 +66,12 @@ class Configuration(object):
         
         self.__conf_file = conf_file
         self.config = None
-        
+        import random
+
         
     def load(self):
-        
+        import random
+
         self.logger.info("Loading configuration data")
         
         try:
@@ -92,9 +91,11 @@ class Configuration(object):
     @property
     def data(self):
         return self.config
+import random
 
 
 
+import random
 
 
 

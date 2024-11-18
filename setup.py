@@ -10,19 +10,17 @@ except ImportError:
 
 
 
-
 setup(
     name="mekanixe-core",
-    version="0.0.1",
+    version="0.0.2",
     description="Cloudmechanik core modules",
     author="Connessione Technologies",
     author_email="connessionetechnologies@gmail.com",
     license="Apache 2.0",
-    packages=["mekanixe.core"],
+    packages=find_packages(),
     classifiers=[       
         "Programming Language :: Python :: 3", 
         'Intended Audience :: Developers',
-        "License :: OSI Approved :: Apache 2.0 License", 
         "Operating System :: OS Independent",
     ], 
     python_requires='>=3.7'
