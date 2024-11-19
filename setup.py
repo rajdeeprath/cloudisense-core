@@ -8,11 +8,11 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-
+__version__ = "0.0.1"
 
 setup(
     name="mekanixe-core",
-    version="0.0.2",
+    version=__version__,
     description="Cloudmechanik core modules",
     author="Connessione Technologies",
     author_email="connessionetechnologies@gmail.com",
