@@ -12,7 +12,7 @@ if [ -z "$version" ]; then
 fi
 
 # Construct the archive filename
-archive_name="dist/mekanixe-core-${version}.tar.gz"
+archive_name="dist/mekanixecore-${version}.tar.gz"
 
 # Build the archive
 python setup.py sdist bdist_wheel
