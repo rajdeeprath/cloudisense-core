@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Extract version number from setup.py
-version=$(grep -E "^__version__ = ['\"](.+)['\"]$" setup.py | cut -d "'" -f2)
+version_line=$(grep -E "^__version__ = ['\"](.+)['\"]$" setup.py | cut -d "'" -f2)
+version=$(echo "$version_line" | sed -E 's/^__version__ = "([^"]+)"$/\1/')
+
 
 # Check if version is extracted
 if [ -z "$version" ]; then
@@ -12,6 +14,18 @@ fi
 # Construct the archive filename
 archive_name="dist/mekanixe-core-${version}.tar.gz"
 
+# Build the archive
+python setup.py sdist bdist_wheel
+
+# check package
+# Check the package using twine check
+twine check "$archive_name"
+if [ $? -ne 0 ]; then
+  echo "Package check failed. Please fix the issues and try again."
+  exit 1
+fi
+
+
 # Check if the archive file exists
 if [ ! -f "$archive_name" ]; then
   echo "Error: Archive file '$archive_name' does not exist."
@@ -19,7 +33,7 @@ if [ ! -f "$archive_name" ]; then
 fi
 
 # Upload the archive with verbose output
-twine upload --repository-url https://test.pypi.org/legacy/ --verbose "$archive_name"
+twine upload --repository testpypi --verbose "$archive_name"
 
 # Check the return code of twine
 if [ $? -eq 0 ]; then
