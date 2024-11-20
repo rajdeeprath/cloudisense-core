@@ -34,7 +34,7 @@ from sys import platform
 
 from cloudisensecore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
 from cloudisensecore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from coresense.event import DataEvent, SimpleNotificationEvent
+from cloudisensecore.event import DataEvent, SimpleNotificationEvent
 
 
 
