@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense` 
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify

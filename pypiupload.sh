@@ -12,14 +12,16 @@ if [ -z "$version" ]; then
 fi
 
 # Construct the archive filename
-archive_name="dist/mekanixecore-${version}.tar.gz"
+archive_name="dist/cloudisensecore-${version}.tar.gz"
 
 # Build the archive
 python setup.py sdist bdist_wheel
 
 # check package
 # Check the package using twine check
-twine check "$archive_name"
+# twine check "$archive_name"
+twine check dist/*
+
 if [ $? -ne 0 ]; then
   echo "Package check failed. Please fix the issues and try again."
   exit 1

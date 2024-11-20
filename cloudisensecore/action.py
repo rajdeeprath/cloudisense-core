@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense`
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -27,12 +27,12 @@ from tornado.web import HTTPError, MissingArgumentError
 from pathlib import Path
 
 
-from mekanixecore import types
-from mekanixecore.constants import *
-from mekanixecore.event import EventType, StartLogRecordingEvent, StopLogRecordingEvent
-from mekanixecore.constants import SMTP_MAILER_MODULE, TOPIC_LOG_ACTIONS, FILE_MANAGER_MODULE, LOG_MANAGER_MODULE
-from mekanixecore.abstracts import IFileSystemOperator, IntentProvider, IMailer, TargetProcess
-from mekanixecore.helpers import *
+from cloudisensecore import types
+from cloudisensecore.constants import *
+from cloudisensecore.event import EventType, StartLogRecordingEvent, StopLogRecordingEvent
+from cloudisensecore.constants import SMTP_MAILER_MODULE, TOPIC_LOG_ACTIONS, FILE_MANAGER_MODULE, LOG_MANAGER_MODULE
+from cloudisensecore.abstracts import IFileSystemOperator, IntentProvider, IMailer, TargetProcess
+from cloudisensecore.helpers import *
 
 
 

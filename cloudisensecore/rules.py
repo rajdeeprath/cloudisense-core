@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense` 
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ from enum import Enum
 from typing import Any, Dict, List, Text, Union
 from abc import ABCMeta, abstractmethod
 
-from mekanixecore.event import EventType
+from cloudisensecore.event import EventType
 
 
 SIMPLE_RULE_EVALUATOR = "SimpleRuleEvaluator"

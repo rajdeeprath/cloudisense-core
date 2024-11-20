@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense`
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -27,11 +27,11 @@ from typing import List, Text, Callable, Dict
 from abc import abstractmethod
 
 
-from mekanixecore.event import EventType, EVENT_ANY
-from mekanixecore.constants import TOPIC_ANY
-from mekanixecore.rules import ReactionRule
-from mekanixecore.types import Modules
-from mekanixecore.uielements import ActionItem
+from cloudisensecore.event import EventType, EVENT_ANY
+from cloudisensecore.constants import TOPIC_ANY
+from cloudisensecore.rules import ReactionRule
+from cloudisensecore.types import Modules
+from cloudisensecore.uielements import ActionItem
 
 
 class IEventDispatcher(object):

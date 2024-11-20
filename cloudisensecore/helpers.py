@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense` 
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -32,9 +32,9 @@ from collections import deque
 from sys import platform
 
 
-from mekanixecore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
-from mekanixecore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from mekanixecore.event import DataEvent, SimpleNotificationEvent
+from cloudisensecore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
+from cloudisensecore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
+from coresense.event import DataEvent, SimpleNotificationEvent
 
 
 
@@ -399,7 +399,7 @@ def getSystemTime():
 def build_software_version_info_string(os_type, os_name, os_version, python_version, program_version, timezoneinfo ):
         return {
             "os": os_type + " " + os_name + " " + os_version,
-            "programs": "Python : " + python_version + ", " + "CloudMechanik : " + program_version,
+            "programs": "Python : " + python_version + ", " + "Cloudisense : " + program_version,
             "timezone": timezoneinfo
         }
 

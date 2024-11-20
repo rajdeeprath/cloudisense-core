@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense` 
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ import datetime
 from builtins import int
 from typing import Dict, Text, Any, Optional
 
-from mekanixecore.constants import TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
+from cloudisensecore.constants import TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
 
 
 

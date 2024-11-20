@@ -1,5 +1,5 @@
 '''
-This file is part of `cloudmechanik` 
+This file is part of `Cloudisense` 
 Copyright 2018 Connessione Technologies
 
 This program is free software: you can redistribute it and/or modify
@@ -38,16 +38,16 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from tornado.websocket import websocket_connect
 from string import ascii_letters
 
-from mekanixecore.constants import *
-from mekanixecore.event import *
-from mekanixecore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
-from mekanixecore.exceptions import ActionError
-from mekanixecore.intent import built_in_intents, INTENT_PREFIX
-from mekanixecore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
-from mekanixecore.types import Modules
-from mekanixecore.event import EVENT_KEY
-from mekanixecore.constants import built_in_client_types
-from mekanixecore.exceptions import ConfigurationLoadError
+from cloudisensecore.constants import *
+from cloudisensecore.event import *
+from cloudisensecore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
+from cloudisensecore.exceptions import ActionError
+from cloudisensecore.intent import built_in_intents, INTENT_PREFIX
+from cloudisensecore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
+from cloudisensecore.types import Modules
+from cloudisensecore.event import EVENT_KEY
+from cloudisensecore.constants import built_in_client_types
+from cloudisensecore.exceptions import ConfigurationLoadError
 
 
 
