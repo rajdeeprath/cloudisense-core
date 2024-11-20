@@ -15,7 +15,7 @@ long_description = (this_directory / "README.md").read_text()
 __version__ = "0.0.1"
 
 setup(
-    name="cloudisensecore",
+    name="cdscore",
     version=__version__,
     description="Cloudisense core modules",
     author="Connessione Technologies",
@@ -25,13 +25,11 @@ setup(
     license="Apache 2.0",
     packages=find_packages(),
     classifiers=[       
-        "Programming Language :: Python :: 3", 
+        "Programming Language :: Python :: 3.8", 
         'Intended Audience :: Developers',
         "Operating System :: OS Independent",
-        "Framework :: Tornado :: 6.0.2",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License"
-
+        "License :: OSI Approved :: Apache Software License",
+        "Development Status :: 2 - Pre-Alpha"
     ], 
     python_requires='>=3.7'
     

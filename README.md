@@ -1,8 +1,8 @@
-**Cloudisense-core**
+## Cloudisense-core
 
-Cloudisense core files. These files are required by the Cloudisense main program as a library.
+Cloudisense core files. These files are required by the Cloudisense main program for core functionality and is also contains class files shared with other components. This can also be used as a dependency when building modules for cloudisense.
 
-**Includes:**
+### Includes
 
 * Intents
 * Actions
@@ -13,7 +13,13 @@ Cloudisense core files. These files are required by the Cloudisense main program
 * Reaction Rules
 
 
-**Installation:**
+### Installation
 
 ```bash
-pip install cloudisensecore
+pip install cdscore
+```
+
+
+### Dependencies
+
+* [Tornado] (https://www.tornadoweb.org/en/stable/)

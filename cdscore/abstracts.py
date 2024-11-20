@@ -27,11 +27,11 @@ from typing import List, Text, Callable, Dict
 from abc import abstractmethod
 
 
-from cloudisensecore.event import EventType, EVENT_ANY
-from cloudisensecore.constants import TOPIC_ANY
-from cloudisensecore.rules import ReactionRule
-from cloudisensecore.types import Modules
-from cloudisensecore.uielements import ActionItem
+from cdscore.event import EventType, EVENT_ANY
+from cdscore.constants import TOPIC_ANY
+from cdscore.rules import ReactionRule
+from cdscore.types import Modules
+from cdscore.uielements import ActionItem
 
 
 class IEventDispatcher(object):

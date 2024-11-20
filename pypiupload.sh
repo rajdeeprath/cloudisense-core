@@ -12,7 +12,7 @@ if [ -z "$version" ]; then
 fi
 
 # Construct the archive filename
-archive_name="dist/cloudisensecore-${version}.tar.gz"
+archive_name="dist/cdscore-${version}.tar.gz"
 
 # Build the archive
 python setup.py sdist bdist_wheel
