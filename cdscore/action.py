@@ -27,12 +27,12 @@ from tornado.web import HTTPError, MissingArgumentError
 from pathlib import Path
 
 
-from cloudisensecore import types
-from cloudisensecore.constants import *
-from cloudisensecore.event import EventType, StartLogRecordingEvent, StopLogRecordingEvent
-from cloudisensecore.constants import SMTP_MAILER_MODULE, TOPIC_LOG_ACTIONS, FILE_MANAGER_MODULE, LOG_MANAGER_MODULE
-from cloudisensecore.abstracts import IFileSystemOperator, IntentProvider, IMailer, TargetProcess
-from cloudisensecore.helpers import *
+from cdscore import types
+from cdscore.constants import *
+from cdscore.event import EventType, StartLogRecordingEvent, StopLogRecordingEvent
+from cdscore.constants import SMTP_MAILER_MODULE, TOPIC_LOG_ACTIONS, FILE_MANAGER_MODULE, LOG_MANAGER_MODULE
+from cdscore.abstracts import IFileSystemOperator, IntentProvider, IMailer, TargetProcess
+from cdscore.helpers import *
 
 
 

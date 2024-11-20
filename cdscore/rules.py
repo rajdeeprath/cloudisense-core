@@ -26,7 +26,7 @@ from enum import Enum
 from typing import Any, Dict, List, Text, Union
 from abc import ABCMeta, abstractmethod
 
-from cloudisensecore.event import EventType
+from cdscore.event import EventType
 
 
 SIMPLE_RULE_EVALUATOR = "SimpleRuleEvaluator"

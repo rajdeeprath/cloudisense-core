@@ -32,9 +32,9 @@ from collections import deque
 from sys import platform
 
 
-from cloudisensecore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
-from cloudisensecore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from cloudisensecore.event import DataEvent, SimpleNotificationEvent
+from cdscore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
+from cdscore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
+from cdscore.event import DataEvent, SimpleNotificationEvent
 
 
 

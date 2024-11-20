@@ -38,16 +38,16 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from tornado.websocket import websocket_connect
 from string import ascii_letters
 
-from cloudisensecore.constants import *
-from cloudisensecore.event import *
-from cloudisensecore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
-from cloudisensecore.exceptions import ActionError
-from cloudisensecore.intent import built_in_intents, INTENT_PREFIX
-from cloudisensecore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
-from cloudisensecore.types import Modules
-from cloudisensecore.event import EVENT_KEY
-from cloudisensecore.constants import built_in_client_types
-from cloudisensecore.exceptions import ConfigurationLoadError
+from cdscore.constants import *
+from cdscore.event import *
+from cdscore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
+from cdscore.exceptions import ActionError
+from cdscore.intent import built_in_intents, INTENT_PREFIX
+from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
+from cdscore.types import Modules
+from cdscore.event import EVENT_KEY
+from cdscore.constants import built_in_client_types
+from cdscore.exceptions import ConfigurationLoadError
 
 
 

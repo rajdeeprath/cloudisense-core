@@ -21,7 +21,7 @@ import datetime
 from builtins import int
 from typing import Dict, Text, Any, Optional
 
-from cloudisensecore.constants import TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
+from cdscore.constants import TOPIC_NOTIFICATION, TOPIC_UI_INITIALIZATION, TOPIC_UI_UPDATES
 
 
 
