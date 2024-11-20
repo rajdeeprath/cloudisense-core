@@ -1,4 +1,4 @@
-**Mekanixe-core**
+**Cloudisense-core**
 
 Cloudisense core files. These files are required by the Cloudisense main program as a library.
 
