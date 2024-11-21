@@ -31,6 +31,12 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Development Status :: 2 - Pre-Alpha"
     ], 
+    install_requires=[
+    'tornado==6.0.2',
+    'smalluuid==1.0.0',
+    'typing-extensions',
+    'jsonschema==3.2.0'
+    ],    
     python_requires='>=3.7'
     
 )
