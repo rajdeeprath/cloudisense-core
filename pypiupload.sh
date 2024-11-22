@@ -1,5 +1,9 @@
 #!/bin/bash
 
+
+# target destination
+repository="pypi"
+
 # Extract version number from setup.py
 version_line=$(grep -E "^__version__ = ['\"](.+)['\"]$" setup.py | cut -d "'" -f2)
 version=$(echo "$version_line" | sed -E 's/^__version__ = "([^"]+)"$/\1/')
@@ -35,7 +39,7 @@ if [ ! -f "$archive_name" ]; then
 fi
 
 # Upload the archive with verbose output
-twine upload --repository testpypi --verbose "$archive_name"
+twine upload --repository "$repository" --verbose "$archive_name"
 
 # Check the return code of twine
 if [ $? -eq 0 ]; then

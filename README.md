@@ -22,4 +22,7 @@ pip install cdscore
 
 ### Dependencies
 
-* [Tornado] (https://www.tornadoweb.org/en/stable/)
+* [tornado] (https://www.tornadoweb.org/en/stable/)
+* [smalluuid] (https://pypi.org/project/smalluuid/)
+* [typing-extensions] (https://pypi.org/project/typing-extensions/)
+* [jsonschema] (https://pypi.org/project/jsonschema/)
