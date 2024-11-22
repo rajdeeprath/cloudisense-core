@@ -2,7 +2,7 @@
 
 
 # target destination
-repository="testpypi"
+repository="pypi"
 
 # Extract version number from setup.py
 version_line=$(grep -E "^__version__ = ['\"](.+)['\"]$" setup.py | cut -d "'" -f2)
