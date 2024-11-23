@@ -22,6 +22,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="Apache 2.0",
+    url="",
     packages=find_packages(),
     classifiers=[       
         "Programming Language :: Python :: 3.8", 
