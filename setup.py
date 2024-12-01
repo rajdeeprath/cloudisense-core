@@ -12,17 +12,17 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 setup(
     name="cdscore",
     version=__version__,
     description="Cloudisense core modules",
     author="Rajdeep Rath",
+    url="https://github.com/rajdeeprath/cloudisense-core",
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="Apache 2.0",
-    url="",
     packages=find_packages(),
     classifiers=[       
         "Programming Language :: Python :: 3.8", 
