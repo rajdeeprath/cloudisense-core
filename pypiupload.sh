@@ -2,10 +2,11 @@
 
 
 # target destination
+#repository="testpypi"
 repository="pypi"
 
 # Path to version.py
-VERSION_FILE="version.py"
+VERSION_FILE="setup.py"
 
 # Extract the version using grep and awk
 version=$(grep "__version__" "$VERSION_FILE" | awk -F"'" '{print $2}')

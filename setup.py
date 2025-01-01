@@ -13,7 +13,7 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 # get version
-from version import __version__
+__version__='0.0.6'
 
 setup(
     name="cdscore",
@@ -33,7 +33,7 @@ setup(
         "Development Status :: 2 - Pre-Alpha"
     ], 
     install_requires=[
-    'tornado>=6.0.2',
+    'tornado>=6.4.2',
     'smalluuid==1.0.0',    
     'jsonschema>=3.2.0',
     'typing-extensions',
