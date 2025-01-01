@@ -17,6 +17,11 @@ if [ -z "$version" ]; then
   exit 1
 fi
 
+# clear old files
+rm -rf ./cdscore.egg-info
+rm -rf ./build
+rm -rf ./dist
+
 # Construct the archive filename
 archive_name="dist/cdscore-${version}.tar.gz"
 
