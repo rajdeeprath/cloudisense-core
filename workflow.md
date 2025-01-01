@@ -3,7 +3,7 @@
 
 ## How to Use This
 
-`cdscore` is a core dependency of Cloudisense. It must be installed into the virtual environment before Cloudisense can be run. It is also required when building a module for Cloudisense.
+`cdscore` is a **critical** dependency of Cloudisense. It must be installed into the virtual environment before Cloudisense can be run. It is also required when building a module for Cloudisense.
 
 ---
 
