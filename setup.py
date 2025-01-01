@@ -12,7 +12,8 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-__version__ = "0.0.2"
+# get version
+from version import __version__
 
 setup(
     name="cdscore",
@@ -32,10 +33,11 @@ setup(
         "Development Status :: 2 - Pre-Alpha"
     ], 
     install_requires=[
-    'tornado==6.0.2',
-    'smalluuid==1.0.0',
+    'tornado>=6.0.2',
+    'smalluuid==1.0.0',    
+    'jsonschema>=3.2.0',
     'typing-extensions',
-    'jsonschema==3.2.0'
+    'urllib3',
     ],    
     python_requires='>=3.7'
     

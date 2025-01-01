@@ -4,10 +4,11 @@
 # target destination
 repository="pypi"
 
-# Extract version number from setup.py
-version_line=$(grep -E "^__version__ = ['\"](.+)['\"]$" setup.py | cut -d "'" -f2)
-version=$(echo "$version_line" | sed -E 's/^__version__ = "([^"]+)"$/\1/')
+# Path to version.py
+VERSION_FILE="version.py"
 
+# Extract the version using grep and awk
+version=$(grep "__version__" "$VERSION_FILE" | awk -F"'" '{print $2}')
 
 # Check if version is extracted
 if [ -z "$version" ]; then
@@ -43,7 +44,7 @@ twine upload --repository "$repository" --verbose "$archive_name"
 
 # Check the return code of twine
 if [ $? -eq 0 ]; then
-  echo "Successfully uploaded archive '$archive_name' to test PyPI."
+  echo "Successfully uploaded archive '$archive_name' to '$repository'."
 else
   echo "Error uploading archive. Please check the output for details."
 fi

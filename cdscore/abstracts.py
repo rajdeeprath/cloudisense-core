@@ -19,6 +19,8 @@ import string
 import os
 import logging
 import asyncio
+import tornado
+
 from abc import abstractmethod
 from builtins import int, str
 from typing import List, Text, Callable, Dict
@@ -952,3 +954,64 @@ class IStatsProvider(object):
     
     def get_render_map(self)->Dict:
         pass
+
+
+
+
+class ICloudisenseApplication(object):
+    
+    async def handle_event(self, event:EventType):
+        raise NotImplementedError
+    
+    
+    async def handle_intent_request(self, source:IntentProvider, intent:Text, args:Dict, event:EventType=None):
+        raise NotImplementedError
+    
+    
+    
+    @property
+    def identity(self):
+        raise NotImplementedError
+    
+
+    @identity.setter
+    def identity(self, uid)->None:
+        raise NotImplementedError
+
+    
+    @property
+    def totalclients(self):
+        raise NotImplementedError
+    
+    
+    @property
+    def clients(self):
+        raise NotImplementedError
+    
+    
+    def registerClient(self, client:object)->None:
+        raise NotImplementedError
+    
+    
+    def unregisterClient(self, client:object)->None:
+        raise NotImplementedError
+    
+        
+    @property
+    def configuration(self)->Dict:
+        raise NotImplementedError
+    
+    
+    @configuration.setter
+    def configuration(self, config:Dict)->None:
+        raise NotImplementedError
+        
+    
+    @property    
+    def modules(self)->Modules:
+        raise NotImplementedError
+    
+    
+    @property    
+    def action_dispatcher(self):
+        raise NotImplementedError
