@@ -112,6 +112,12 @@ class IFileSystemOperator(object):
     
     def append_allowed_download_paths(self, paths:List)->None:
         raise NotImplementedError
+    
+    def read_master_configuration(self) -> Dict:
+        raise NotImplementedError
+    
+    def write_master_configuration(self, new_config: Dict) -> Dict:
+        raise NotImplementedError
 
 
 

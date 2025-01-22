@@ -108,6 +108,12 @@ class Action(object):
     classdocs
     '''
     
+    
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        
+    
     '''
     Abstract method, must be defined in concrete implementation. action names must be unique
     '''
