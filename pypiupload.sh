@@ -3,7 +3,7 @@
 
 # target destination
 #repository="testpypi"
-repository="pypi"
+repository="testpypi"
 
 # Path to version.py
 VERSION_FILE="setup.py"

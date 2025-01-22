@@ -12,7 +12,7 @@
 You can install this library locally without uploading it to the PyPI repository by running the following command:
 
 ```sh
-python setup.py install
+pip install -e .
 ```
 
 Make sure to install it into the same virtual environment that Cloudisense uses. This ensures you can run Cloudisense against it and test it before committing to PyPI.
