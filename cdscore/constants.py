@@ -67,6 +67,8 @@ TOPIC_UI_UPDATES = "/ui/updates"
 
 ''' Notification codes'''
 
+NOTIFICATIONS_INFO = 1
+
 NOTIFICATIONS_NOTICE = 2
 
 NOTIFICATIONS_WARN = 3
