@@ -19,9 +19,9 @@ import string
 import os
 import logging
 import asyncio
-import tornado
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+
 from builtins import int, str
 from typing import List, Text, Callable, Dict
 from abc import abstractmethod
@@ -772,6 +772,53 @@ class ILogMonitor(object):
     def disable_chunk_generation(self, logname:str) ->None:
         raise NotImplementedError()
         pass
+    
+    
+
+class ISystemCore(ABC):
+    
+    @abstractmethod
+    def get_persistent_id(self, file_path: str = "unique_id.txt") -> str:
+        pass
+    
+    @abstractmethod
+    def get_open_files_limits(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def identity(self) -> str:
+        pass
+    
+    @identity.setter
+    @abstractmethod
+    def identity(self, uuid: str):
+        pass
+    
+    @abstractmethod
+    def restart(self) -> Dict:
+        pass
+    
+    @abstractmethod
+    def read_module_configuration(self, module_file_name: str) -> Dict:
+        pass
+    
+    @abstractmethod
+    def read_all_module_configurations(self) -> Dict:
+        pass
+    
+    @abstractmethod
+    def read_master_configuration(self) -> Dict:
+        pass
+    
+    @abstractmethod
+    def is_restart_allowed(self) -> bool:
+        pass
+    
+    @abstractmethod
+    async def update(self):
+        pass
+
 
 
 class ISystemMonitor(object):
