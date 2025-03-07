@@ -79,6 +79,8 @@ NOTIFICATIONS_ERROR = 4
 
 ''' Moduile names'''
 
+SYSTEM_CORE_MODULE = "systemcore"
+
 SYSTEM_MODULE = "sysmon"
 
 FILE_MANAGER_MODULE = "file_manager"
