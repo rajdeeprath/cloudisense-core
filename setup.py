@@ -13,7 +13,7 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 # get version
-__version__="0.0.9"
+__version__="0.0.10"
 
 setup(
     name="cdscore",
