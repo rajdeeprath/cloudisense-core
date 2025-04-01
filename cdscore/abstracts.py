@@ -34,7 +34,89 @@ from cdscore.types import Modules
 from cdscore.uielements import ActionItem
 
 
+class IFileSystemOperator(ABC):
+    
+    @abstractmethod
+    def add_accessible_path(self, path: str) -> None:
+        pass
+    
+    @abstractmethod
+    def get_accessible_paths(self) -> List[str]:
+        pass
+    
+    @abstractmethod
+    def get_exposable_accessible_paths(self) -> List[str]:
+        pass
+    
+    @abstractmethod
+    def get_real_path(self, path: str) -> str:
+        pass
+    
+    @abstractmethod
+    def browse_content(self, path: str) -> List:
+        pass
+    
+    @abstractmethod
+    def delete_file(self, path: str) -> None:
+        pass
+    
+    @abstractmethod
+    def delete_directory(self, path: str) -> None:
+        pass
+    
+    @abstractmethod
+    def make_downloadable_tmp_link(self, file_path: str) -> None:
+        pass
+    
+    @abstractmethod
+    def handle_upload(self, chunk: bytes, tmp_buffer: bytes, permit: Text) -> None:
+        pass
+    
+    @property
+    @abstractmethod
+    def max_stream_size(self):
+        pass
+    
+    @abstractmethod
+    def generate_upload_permit(self, upload_path: str, filename: str, filesize: int = 0) -> object:
+        pass
+    
+    @abstractmethod
+    def get_upload_progress(self, permit: Text) -> int:
+        pass
+    
+    @abstractmethod
+    def handle_upload_complete(self, permit: Text, data, filename: str, args: Dict) -> None:
+        pass
+    
+    @abstractmethod
+    def download_file_async(self, file_path: str, chunksize: int, callback: Callable) -> None:
+        pass
+    
+    @abstractmethod
+    def read_file(self, filepath: str, base64_encoded: bool = False) -> any:
+        pass
+    
+    @abstractmethod
+    def write_file(self, filepath: str, content: str, reserved: bool = False, must_exist: bool = True, base64_encoded: bool = False) -> None:
+        pass
+    
+    @abstractmethod
+    def append_allowed_download_paths(self, paths: List) -> None:
+        pass
+    
+    @abstractmethod
+    def read_master_configuration(self) -> Dict:
+        pass
+    
+    @abstractmethod
+    def write_master_configuration(self, new_config: Dict) -> Dict:
+        pass
+
+
+
 class IMessagingClient(ABC):  
+    
     def __init__(self):
         pass
 
@@ -148,90 +230,7 @@ class IFederationGateway(ABC):
         """
         Subscribes to presence updates for new clients.
         """
-        raise NotImplementedError    
-
-
-
-class IFileSystemOperator(ABC):
-    
-    @abstractmethod
-    def add_accessible_path(self, path: str) -> None:
-        pass
-    
-    @abstractmethod
-    def get_accessible_paths(self) -> List[str]:
-        pass
-    
-    @abstractmethod
-    def get_exposable_accessible_paths(self) -> List[str]:
-        pass
-    
-    @abstractmethod
-    def get_real_path(self, path: str) -> str:
-        pass
-    
-    @abstractmethod
-    def browse_content(self, path: str) -> List:
-        pass
-    
-    @abstractmethod
-    def delete_file(self, path: str) -> None:
-        pass
-    
-    @abstractmethod
-    def delete_directory(self, path: str) -> None:
-        pass
-    
-    @abstractmethod
-    def make_downloadable_tmp_link(self, file_path: str) -> None:
-        pass
-    
-    @abstractmethod
-    def handle_upload(self, chunk: bytes, tmp_buffer: bytes, permit: Text) -> None:
-        pass
-    
-    @property
-    @abstractmethod
-    def max_stream_size(self):
-        pass
-    
-    @abstractmethod
-    def generate_upload_permit(self, upload_path: str, filename: str, filesize: int = 0) -> object:
-        pass
-    
-    @abstractmethod
-    def get_upload_progress(self, permit: Text) -> int:
-        pass
-    
-    @abstractmethod
-    def handle_upload_complete(self, permit: Text, data, filename: str, args: Dict) -> None:
-        pass
-    
-    @abstractmethod
-    def download_file_async(self, file_path: str, chunksize: int, callback: Callable) -> None:
-        pass
-    
-    @abstractmethod
-    def read_file(self, filepath: str, base64_encoded: bool = False) -> any:
-        pass
-    
-    @abstractmethod
-    def write_file(self, filepath: str, content: str, reserved: bool = False, must_exist: bool = True, base64_encoded: bool = False) -> None:
-        pass
-    
-    @abstractmethod
-    def append_allowed_download_paths(self, paths: List) -> None:
-        pass
-    
-    @abstractmethod
-    def read_master_configuration(self) -> Dict:
-        pass
-    
-    @abstractmethod
-    def write_master_configuration(self, new_config: Dict) -> Dict:
-        pass
-
-
+        raise NotImplementedError  
         
 
 
@@ -914,19 +913,11 @@ class ISystemCore(ABC):
 class ISystemMonitor(ABC):
     
     @abstractmethod
-    def start_monitor(self) -> None:
-        pass
-    
-    @abstractmethod
     def get_cpu_stats(self, cached=False) -> Dict:
         pass
     
     @abstractmethod
     def get_memory_stats(self, unit="b", cached=False) -> Dict:
-        pass
-    
-    @abstractmethod
-    def schedule_update(self, updater_script: str) -> str:
         pass
     
     @abstractmethod
