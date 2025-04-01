@@ -119,7 +119,7 @@ class PathConcealer(object):
 
 class MessageRouter(IEventDispatcher):
     
-    def __init__(self, modules:Modules) -> None:
+    def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.__modules = modules
         pass
@@ -184,7 +184,7 @@ class PubSubHub(IModule):
             topictype = channel_info["type"]
             queuesize = channel_info["queue_size"]
             max_users = channel_info["max_users"]
-            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), Set[IMessagingClient](), max_users)
+            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), set(), max_users)
         
         '''
         channels["topic_name"] = ('topic_type', 'public_or_private', {message_queue}, {subscribers_list}, max_users)
@@ -284,13 +284,13 @@ class PubSubHub(IModule):
                 channel_info["max_users"]  = 0
                 self.createChannel(channel_info)
                 if client != None:
-                    clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
+                    clients:Set[IMessagingClient] = self.channels[topicname][3] #set
                     clients.add(client);                
                     self.logger.info("Total clients in %s = %d", topicname, len(clients))
             else:
                 self.logger.error("Topic channel %s does not exist and cannot be created either", topicname)
         else:
-            clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
+            clients:Set[IMessagingClient] = self.channels[topicname][3] #set
             clients.add(client);                
             self.logger.info("Total clients in %s = %d", topicname, len(clients))
         pass
@@ -310,7 +310,7 @@ class PubSubHub(IModule):
     '''
     def unsubscribe(self, topicname, client:IMessagingClient):
         if topicname in self.channels:
-            clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
+            clients:Set[IMessagingClient] = self.channels[topicname][3] #set
             clients.discard(client);
             self.logger.info("Total clients in %s = %d", topicname, len(clients))
             
@@ -343,7 +343,7 @@ class PubSubHub(IModule):
             queuesize = channel_info["queue_size"]
             max_users = channel_info["max_users"]
             self.logger.info("Registering channel %s", topicname)
-            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), Set[IMessagingClient](), max_users)
+            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), set(), max_users)
             self.logger.debug("Activating message flush for topic %s", topicname)
             tornado.ioloop.IOLoop.current().spawn_callback(self.__flush_messages, topicname)
         pass
@@ -460,7 +460,7 @@ class PubSubHub(IModule):
                 
                 channel = self.channels[topic]
                 msgque:Queue = channel[2] #queue
-                clients:Set[IMessagingClient]  = channel[3] #Set
+                clients:Set[IMessagingClient]  = channel[3] #set
                 
                 message = await msgque.get()                
                 
@@ -506,8 +506,8 @@ class VirtualHandler(object):
         self.messages = Queue()
         self.id = str(uuid.uuid4())
         self.liveactions = {}
-        self.liveactions['logrecordings'] = Set()
-        self.liveactions['scriptexecutions'] = Set()
+        self.liveactions['logrecordings'] = set()
+        self.liveactions['scriptexecutions'] = set()
         self.finished = False
         tornado.ioloop.IOLoop.current().spawn_callback(self.__run)
         pass
