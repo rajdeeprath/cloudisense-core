@@ -24,6 +24,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="Apache 2.0",
+    license_files=["LICENSE"],
     packages=find_packages(),
     classifiers=[       
         "Programming Language :: Python :: 3.8", 
