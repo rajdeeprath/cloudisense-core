@@ -38,8 +38,8 @@ function ensure_latest_tools {
 ensure_latest_tools
 
 # Target repository (change to testpypi if needed)
-# repository="testpypi"
-repository="pypi"
+repository="testpypi"
+# repository="pypi"
 
 # Path to setup.py
 VERSION_FILE="setup.py"
