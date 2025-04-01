@@ -25,7 +25,7 @@ import logging
 import tornado
 import copy
 
-from typing import Dict
+from typing import Dict, Set
 from tornado.queues import Queue
 from smalluuid import SmallUUID
 from time import time
@@ -38,8 +38,9 @@ from string import ascii_letters
 
 from cdscore.constants import *
 from cdscore.event import *
-from cdscore.abstracts import ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
-from cdscore.exceptions import ActionError
+from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
+from cdscore.exceptions import ActionError, RPCError
+from cdscore.helpers import formatErrorRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
 from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from cdscore.types import Modules
@@ -89,12 +90,6 @@ cs
     @property
     def data(self):
         return self.config
-import random
-
-
-
-import random
-
 
 
 class PathConcealer(object):
@@ -122,6 +117,49 @@ class PathConcealer(object):
 
 
 
+class MessageRouter(IEventDispatcher):
+    
+    def __init__(self, modules:Modules) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.__modules = modules
+        pass
+       
+    
+    async def process_messages(self, message:Dict, source:IMessagingClient) -> None:
+        
+        if self.__modules.hasModule(RPC_GATEWAY_MODULE):
+            rpcgateway:IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
+        
+            err = None
+            response = None
+            
+            try:
+                if rpcgateway.isRPC(message):
+                    await rpcgateway.handleRPC(self, message)
+                else:
+                    self.logger.warning("Unknown message type received")
+            except RPCError as re:
+                err = str(re)                
+                self.logger.error(err)
+            except Exception as e:
+                err = "Unknown error occurred." + str(e)                
+                self.logger.error(err)                
+            finally:
+                try:
+                    if err != None and self.finished == False:                    
+                        response = formatErrorRPCResponse(message["requestid"], err)
+                        await self.submit(response)
+                except:
+                    self.logger.warning("Unable to write message to client " + self.id)            
+            pass
+        else:
+            err = "Feature unavailable" 
+            response = formatErrorRPCResponse(message["requestid"], err)
+            await source.message_to_client(response)
+    
+    
+
+
 class PubSubHub(IModule):
     '''
     classdocs
@@ -146,7 +184,7 @@ class PubSubHub(IModule):
             topictype = channel_info["type"]
             queuesize = channel_info["queue_size"]
             max_users = channel_info["max_users"]
-            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), set(), max_users)
+            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), Set[IMessagingClient](), max_users)
         
         '''
         channels["topic_name"] = ('topic_type', 'public_or_private', {message_queue}, {subscribers_list}, max_users)
@@ -235,7 +273,7 @@ class PubSubHub(IModule):
         return self.__listeners
        
         
-    def subscribe(self, topicname, client = None):
+    def subscribe(self, topicname, client:IMessagingClient = None):
         
         if topicname not in self.channels:
             if self.__config["allow_dynamic_topics"] == True:
@@ -246,13 +284,13 @@ class PubSubHub(IModule):
                 channel_info["max_users"]  = 0
                 self.createChannel(channel_info)
                 if client != None:
-                    clients = self.channels[topicname][3] #set
+                    clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
                     clients.add(client);                
                     self.logger.info("Total clients in %s = %d", topicname, len(clients))
             else:
                 self.logger.error("Topic channel %s does not exist and cannot be created either", topicname)
         else:
-            clients = self.channels[topicname][3] #set
+            clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
             clients.add(client);                
             self.logger.info("Total clients in %s = %d", topicname, len(clients))
         pass
@@ -261,7 +299,7 @@ class PubSubHub(IModule):
     '''
         Client subscribe to multiple topics
     ''' 
-    def subscribe_topics(self, topics, client):
+    def subscribe_topics(self, topics, client:IMessagingClient):
         for topicname in topics:
             self.subscribe(topicname, client)
             pass    
@@ -270,9 +308,9 @@ class PubSubHub(IModule):
     '''
         Client unsubscribes from topic
     '''
-    def unsubscribe(self, topicname, client):
+    def unsubscribe(self, topicname, client:IMessagingClient):
         if topicname in self.channels:
-            clients = self.channels[topicname][3] #set
+            clients:Set[IMessagingClient] = self.channels[topicname][3] #Set
             clients.discard(client);
             self.logger.info("Total clients in %s = %d", topicname, len(clients))
             
@@ -287,7 +325,7 @@ class PubSubHub(IModule):
     '''
         clear all subscriptions
     '''
-    def clearsubscriptions(self, client):
+    def clearsubscriptions(self, client:IMessagingClient):
         for key in list(self.channels):
             self.logger.info("Clearing subscriptions in topic %s", key)
             self.unsubscribe(key, client)
@@ -305,7 +343,7 @@ class PubSubHub(IModule):
             queuesize = channel_info["queue_size"]
             max_users = channel_info["max_users"]
             self.logger.info("Registering channel %s", topicname)
-            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), set(), max_users)
+            self.channels[topicname] = (topicname, topictype, Queue(maxsize=queuesize), Set[IMessagingClient](), max_users)
             self.logger.debug("Activating message flush for topic %s", topicname)
             tornado.ioloop.IOLoop.current().spawn_callback(self.__flush_messages, topicname)
         pass
@@ -337,7 +375,7 @@ class PubSubHub(IModule):
     '''
     async def __submit(self, topicname, message):
         if topicname in self.channels:
-            msgque = self.channels[topicname][2] #queue
+            msgque:Queue = self.channels[topicname][2] #queue
             await msgque.put(message)
         pass
     
@@ -347,7 +385,7 @@ class PubSubHub(IModule):
         If topic channel does not exist, it is created based on configuration
         parameter `allow_dynamic_topic`
     '''
-    async def publish(self, topicname, message, client=None):
+    async def publish(self, topicname, message, client:IMessagingClient=None):
         if topicname not in self.channels:
             if self.__config["allow_dynamic_topics"] == True:
                 channel_info = {}
@@ -422,7 +460,7 @@ class PubSubHub(IModule):
                 
                 channel = self.channels[topic]
                 msgque:Queue = channel[2] #queue
-                clients:set = channel[3] #set
+                clients:Set[IMessagingClient]  = channel[3] #Set
                 
                 message = await msgque.get()                
                 
@@ -432,7 +470,7 @@ class PubSubHub(IModule):
                     ''' pushing to clients '''
                     try:    
                         for client in clients:
-                            await client.submit(message)
+                            await client.message_to_client(message)
                     except Exception as e:
                         logging.error("An error occurred pushing messages to client %s for topic %s. Cause : %s.", str(client), topic, str(e))
                     
@@ -457,7 +495,7 @@ class PubSubHub(IModule):
 
 
 
-
+@DeprecationWarning
 class VirtualHandler(object):
     '''
     Acts as a handler delegate on behalf of client channels
@@ -468,8 +506,8 @@ class VirtualHandler(object):
         self.messages = Queue()
         self.id = str(uuid.uuid4())
         self.liveactions = {}
-        self.liveactions['logrecordings'] = set()
-        self.liveactions['scriptexecutions'] = set()
+        self.liveactions['logrecordings'] = Set()
+        self.liveactions['scriptexecutions'] = Set()
         self.finished = False
         tornado.ioloop.IOLoop.current().spawn_callback(self.__run)
         pass
@@ -541,7 +579,7 @@ class ActionDispatcher(ITaskExecutor):
                     raise TypeError("'action' for intent " + intent_name + " was None, where object of type 'Action' was expected") 
            
             except TypeError as te:
-                self.logger.warn(str(te))
+                self.logger.warning(str(te))
                 pass
 
 
