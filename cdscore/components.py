@@ -125,7 +125,7 @@ class MessageRouter(IEventDispatcher):
         pass
        
     
-    async def process_messages(self, message:Dict, source:IMessagingClient) -> None:
+    async def process_messages(self, message:Dict, client:IMessagingClient) -> None:
         
         if self.__modules.hasModule(RPC_GATEWAY_MODULE):
             rpcgateway:IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
@@ -135,7 +135,7 @@ class MessageRouter(IEventDispatcher):
             
             try:
                 if rpcgateway.isRPC(message):
-                    await rpcgateway.handleRPC(self, message)
+                    await rpcgateway.handleRPC(client, message)
                 else:
                     self.logger.warning("Unknown message type received")
             except RPCError as re:
@@ -146,16 +146,16 @@ class MessageRouter(IEventDispatcher):
                 self.logger.error(err)                
             finally:
                 try:
-                    if err != None and self.finished == False:                    
+                    if err != None and client.is_closed() == False:                    
                         response = formatErrorRPCResponse(message["requestid"], err)
-                        await self.submit(response)
+                        await client.message_to_client(response)
                 except:
-                    self.logger.warning("Unable to write message to client " + self.id)            
+                    self.logger.warning("Unable to write message to client " + client.id)            
             pass
         else:
             err = "Feature unavailable" 
             response = formatErrorRPCResponse(message["requestid"], err)
-            await source.message_to_client(response)
+            await client.message_to_client(response)
     
     
 

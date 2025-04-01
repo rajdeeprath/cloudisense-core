@@ -119,11 +119,19 @@ class IMessagingClient(ABC):
     
     def __init__(self):
         pass
+    
 
     @abstractmethod
     async def message_to_client(self, message: Dict) -> None:
         """Send a message to the client asynchronously."""
         pass  
+    
+    
+    @abstractmethod
+    def is_closed(self) -> bool:
+        """Returns True if the client is closed, otherwise False."""
+        pass
+   
 
     @property
     @abstractmethod
