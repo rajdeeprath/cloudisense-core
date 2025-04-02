@@ -117,49 +117,6 @@ class PathConcealer(object):
 
 
 
-class MessageRouter(IEventDispatcher):
-    
-    def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.__modules = modules
-        pass
-       
-    
-    async def process_messages(self, message:Dict, client:IMessagingClient) -> None:
-        
-        if self.__modules.hasModule(RPC_GATEWAY_MODULE):
-            rpcgateway:IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
-        
-            err = None
-            response = None
-            
-            try:
-                if rpcgateway.isRPC(message):
-                    await rpcgateway.handleRPC(client, message)
-                else:
-                    self.logger.warning("Unknown message type received")
-            except RPCError as re:
-                err = str(re)                
-                self.logger.error(err)
-            except Exception as e:
-                err = "Unknown error occurred." + str(e)                
-                self.logger.error(err)                
-            finally:
-                try:
-                    if err != None and client.is_closed() == False:                    
-                        response = formatErrorRPCResponse(message["requestid"], err)
-                        await client.message_to_client(response)
-                except:
-                    self.logger.warning("Unable to write message to client " + client.id)            
-            pass
-        else:
-            err = "Feature unavailable" 
-            response = formatErrorRPCResponse(message["requestid"], err)
-            await client.message_to_client(response)
-    
-    
-
-
 class PubSubHub(IModule):
     '''
     classdocs
@@ -787,92 +744,36 @@ class ActionDispatcher(ITaskExecutor):
 
 
 
-'''
-Delegate interface for communication layer across the application
-''' 
-class CommunicationHub(IEventHandler, IEventDispatcher):
+class MessageRouter(IEventDispatcher):
     
-    '''
-    classdocs
-    '''
-
-
-    def __init__(self, conf=None):
-        '''
-        Constructor
-        '''
+    def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.__interfaces = {}
-        self.__channel_data = {}
+        self.__modules = modules
+        pass
+       
+    
+    async def process_messages(self, message: Dict, client: IMessagingClient) -> None:
+        if not self.__modules.hasModule(RPC_GATEWAY_MODULE):
+            await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
+            return
+        
+        rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
+        err = None
 
+        try:
+            if rpcgateway.isRPC(message):
+                await rpcgateway.handleRPC(client, message)
+            else:
+                self.logger.warning("Unknown message type received")
+        except (RPCError, Exception) as e:
+            err = str(e) if isinstance(e, RPCError) else f"Unknown error occurred: {e}"
+            self.logger.error(err)
 
-    
-    def register_interface(self, name:Text, role:Text, mod:IClientChannel)->None:
-        
-        if not role in built_in_client_types():
-            raise ValueError("Invalid client type")
-        
-        
-        self.__channel_data[name] = {}
-        self.__interfaces[name] = mod
-        pass
-    
-    
-    
-    def deregister_interface(self, name:Text)->None:        
-        del self.__interfaces[name]
-        del self.__channel_data[name]
-        pass
-    
-    
-    
-    def activate_interface(self, name:Text)->None:
-        mod = self.__interfaces[name]
-        if mod:
-            self._activate(name)
-        pass
-    
-    
-    def deactivate_interface(self, name:Text)->None:
-        mod = self.__interfaces[name]
-        if mod:
-            self._deactivate(name)
-        pass
-    
-    
-    def _activate(self, name:Text)->None:
-        pass
-    
-    
-    
-    def _deactivate(self, name:Text)->None:
-        pass
-    
-    
-    
-    '''
-    Overridden to provide list of events that we are interested to listen to 
-    '''
-    def get_events_of_interests(self)-> List:
-        return list() 
-    
-    
-    
-    '''
-    Overridden to provide list of events that we are interested to listen to 
-    '''
-    def get_topics_of_interests(self)-> List:
-        return list() 
-    
-    
-    
-    '''
-    Overridden to handle events subscribed to
-    '''
-    async def handleEvent(self, event:EventType):
-        self.logger.info(event["name"] + " received")
-        await self.__events.put(event)
-        pass
+        if err and not client.is_closed():
+            try:
+                await client.message_to_client(formatErrorRPCResponse(message["requestid"], err))
+            except:
+                self.logger.warning(f"Unable to write message to client {client.id}")
 
 
 
