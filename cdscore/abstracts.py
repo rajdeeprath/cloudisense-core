@@ -150,7 +150,7 @@ class IRPCGateway(ABC):
     
     
     @abstractmethod
-    def isRPC(self, message):
+    def is_rpc(self, message):
         raise NotImplementedError 
 
 
@@ -168,77 +168,58 @@ class IFederationGateway(ABC):
         """
         Asynchronously connects to the MQTT broker.
         """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def inject_auth_data(self, client, auth_config) -> None:
-        """
-        Injects authentication data into the client.
-        """
         pass
 
+
+    @abstractmethod
+    def is_federation_connected(self) -> bool:
+        """Returns True if federation is connected, otherwise False."""
+        pass
+    
     @abstractmethod
     def send_message(self, topic: str, payload: Dict, headers=None) -> None:
-        """
-        Sends a message to a specified topic.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def on_connect(self, client, flags, rc, properties) -> None:
-        """
-        Handles MQTT connection event.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def on_message(self, client, topic, payload, qos, properties) -> None:
-        """
-        Handles incoming messages from MQTT.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def on_disconnect(self, client, packet) -> None:
-        """
-        Handles MQTT disconnection event.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def on_subscribe(self, client, mid, qos, properties) -> None:
-        """
-        Handles successful topic subscription.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def on_unsubscribe(self, client, mid, qos, properties) -> None:
-        """
-        Handles topic unsubscription.
-        """
-        raise NotImplementedError
-    
-
-    @abstractmethod
-    def handle_client_presence(self, client, topic: str, payload: str) -> None:
-        """
-        Manages presence updates of federation clients.
-        """
+        """Sends a message to a given topic."""
         pass
-
+    
     @abstractmethod
-    def listen_for_new_clients(self, client, qos: int = 1) -> None:
-        """
-        Subscribes to presence updates for new clients.
-        """
-        raise NotImplementedError  
+    def on_connect(self, client, flags, rc, properties):
+        """Handles MQTT connection events."""
+        pass
+    
+    @abstractmethod
+    def on_message(self, client, topic, payload, qos, properties):
+        """Handles incoming MQTT messages."""
+        pass
+    
+    @abstractmethod
+    def on_disconnect(self, client, packet):
+        """Handles MQTT disconnection events."""
+        pass
+    
+    @abstractmethod
+    def on_subscribe(self, client, mid, qos, properties):
+        """Handles subscription events."""
+        pass
+    
+    @abstractmethod
+    def on_unsubscribe(self, client, mid, qos, properties):
+        """Handles unsubscription events."""
+        pass
+    
+    @abstractmethod
+    def handle_client_presence(self, client, topic: str, payload: str):
+        """Handles client presence updates."""
+        pass
+    
+    @abstractmethod
+    def listen_to_client_directory(self, client, qos: int = 1):
+        """Subscribes to presence updates for all clients."""
+        pass
+    
+    @abstractmethod
+    def listen_for_private_messages(self, client, qos: int = 1):
+        """Subscribes to private messages for the client."""
+        pass
         
 
 

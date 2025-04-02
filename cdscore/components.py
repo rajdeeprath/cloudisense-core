@@ -746,34 +746,149 @@ class ActionDispatcher(ITaskExecutor):
 
 class MessageRouter(IEventDispatcher):
     
+    
     def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.__modules = modules
-        pass
-       
-    
+        self.__messages = Queue()
+        self.__message_directory = {}
+        pass      
+
+
+    def is_rpc(self, message: Dict) -> bool:
+        """
+        Checks if the given message is an RPC message.
+        
+        Parameters:
+            message (Dict): The message dictionary to check.
+
+        Returns:
+            bool: True if the message is an RPC, False otherwise.
+        """
+        return message.get("type") == "rpc"
+
+
+
+    def is_local_rpc(self, message: Dict) -> bool:
+        """
+        Determines if the given message is a local RPC.
+        
+        A local RPC is identified by:
+        - Being an RPC message.
+        - Having no "receiver" field or an empty/None value.
+
+        Parameters:
+            message (Dict): The message dictionary to check.
+
+        Returns:
+            bool: True if the message is a local RPC, False otherwise.
+        """
+        return self.is_rpc(message) and ("receiver" not in message or not message["receiver"])
+
+
+
+    def is_network_rpc(self, message: Dict) -> bool:
+        """
+        Determines if the given message is a network RPC.
+        
+        A network RPC is identified by:
+        - Being an RPC message.
+        - Having both "sender" and "receiver" fields specified.
+
+        Parameters:
+            message (Dict): The message dictionary to check.
+
+        Returns:
+            bool: True if the message is a network RPC, False otherwise.
+        """
+        return self.is_rpc(message) and "sender" in message and bool(message.get("receiver"))
+
+
+
+    def is_broadcast_rpc(self, message: Dict) -> bool:
+        """
+        Determines if the given message is a broadcast RPC.
+        
+        A broadcast RPC is identified by:
+        - Being an RPC message.
+        - Having a "sender" field specified.
+        - The "receiver" field being set to "*", indicating the message is meant for all clients.
+
+        Parameters:
+            message (Dict): The message dictionary to check.
+
+        Returns:
+            bool: True if the message is a broadcast RPC, False otherwise.
+        """
+        return self.is_rpc(message) and "sender" in message and message.get("receiver") == "*"
+
+
+
     async def process_messages(self, message: Dict, client: IMessagingClient) -> None:
+        """
+        Processes incoming messages and determines how to handle them.
+
+        If the message is a local RPC, it will be processed accordingly.
+
+        Parameters:
+            message (Dict): The incoming message.
+            client (IMessagingClient): The client that sent the message.
+
+        Returns:
+            None
+        """
+        if self.is_local_rpc(message):
+            await self._process_local_rpc_messages(message, client)
+
+
+    
+    async def _process_local_rpc_messages(self, message: Dict, client: IMessagingClient) -> None:
+        """
+        Processes incoming RPC messages from a client.
+
+        This function checks if the RPC Gateway module is available and processes the message
+        accordingly. If the message is a valid RPC request, it is forwarded to the RPC Gateway
+        for handling. Otherwise, an error response is sent to the client.
+
+        Args:
+            message (Dict): The incoming RPC message.
+            client (IMessagingClient): The client that sent the message.
+
+        Behavior:
+        - If the `RPC_GATEWAY_MODULE` is unavailable, an error response is immediately sent.
+        - If the message is an RPC request, it is processed by the RPC Gateway.
+        - If an exception occurs, an error response is sent to the client.
+        - Errors include `RPCError` (for known RPC issues) and general exceptions.
+        - Ensures error messages are sent back to the client if possible.
+        """
+
+        # Check if the RPC Gateway module is available
         if not self.__modules.hasModule(RPC_GATEWAY_MODULE):
             await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
             return
-        
+
         rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
         err = None
 
         try:
+            # Check if the message is a valid RPC request and process it
             if rpcgateway.isRPC(message):
                 await rpcgateway.handleRPC(client, message)
             else:
                 self.logger.warning("Unknown message type received")
         except (RPCError, Exception) as e:
+            # Capture and log any errors that occur during processing
             err = str(e) if isinstance(e, RPCError) else f"Unknown error occurred: {e}"
             self.logger.error(err)
 
+        # If an error occurred and the client is still connected, send an error response
         if err and not client.is_closed():
             try:
                 await client.message_to_client(formatErrorRPCResponse(message["requestid"], err))
             except:
                 self.logger.warning(f"Unable to write message to client {client.id}")
+
+        
 
 
 
