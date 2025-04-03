@@ -40,7 +40,7 @@ from cdscore.constants import *
 from cdscore.event import *
 from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
 from cdscore.exceptions import ActionError, RPCError
-from cdscore.helpers import formatErrorRPCResponse
+from cdscore.helpers import formatErrorRPCResponse, formatSuccessRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
 from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from cdscore.types import Modules
@@ -742,127 +742,112 @@ class ActionDispatcher(ITaskExecutor):
                         await pubsub.publish_event_type(event)
 
 
-
-
-class MessageRouter(IEventDispatcher):
+class MessageClassifier(object):
     
+    def __init__(self) -> None:
+        super().__init__()
+        
     
-    def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.__modules = modules
-        self.__messages = Queue()
-        self.__message_directory = {}
-        pass      
-
-
     def is_rpc(self, message: Dict) -> bool:
-        """
-        Checks if the given message is an RPC message.
-        
-        Parameters:
-            message (Dict): The message dictionary to check.
-
-        Returns:
-            bool: True if the message is an RPC, False otherwise.
-        """
+        """True if the message is an RPC request."""
         return message.get("type") == "rpc"
-
-
-
+    
     def is_local_rpc(self, message: Dict) -> bool:
+        """True if the message is an RPC request."""
+        return self.is_rpc(message)
+
+    def is_rpc_response(self, message: Dict) -> bool:
+        """True if the message is an RPC response (from service to service or back to client)."""
+        return message.get("type") == "rpc_response"
+
+    def is_browser_to_local(self, message: Dict) -> bool:
         """
-        Determines if the given message is a local RPC.
-        
-        A local RPC is identified by:
-        - Being an RPC message.
-        - Having no "receiver" field or an empty/None value.
-
-        Parameters:
-            message (Dict): The message dictionary to check.
-
-        Returns:
-            bool: True if the message is a local RPC, False otherwise.
+        Client ➝ Local Service
+        - No 'serviceId' (means it's for the local service)
+        - No 'clientId' (client does not self-identify)
         """
-        return self.is_rpc(message) and ("receiver" not in message or not message["receiver"])
+        return self.is_rpc(message) and "serviceId" not in message and "clientId" not in message
 
+    def is_browser_to_remote(self, message: Dict) -> bool:
+        """
+        Client ➝ Local ➝ Remote
+        - No 'clientId' yet (will be added by local service)
+        - Has 'serviceId' set to remote target
+        """
+        return self.is_rpc(message) and "serviceId" in message and "clientId" not in message
 
-
+    def is_local_to_remote(self, message: Dict) -> bool:
+        """
+        Local ➝ Remote
+        - Has 'serviceId' (target)
+        - Has 'clientId' (to return result to browser)
+        """
+        return self.is_rpc(message) and "serviceId" in message and "clientId" in message
+    
     def is_network_rpc(self, message: Dict) -> bool:
         """
-        Determines if the given message is a network RPC.
-        
-        A network RPC is identified by:
-        - Being an RPC message.
-        - Having both "sender" and "receiver" fields specified.
-
-        Parameters:
-            message (Dict): The message dictionary to check.
-
-        Returns:
-            bool: True if the message is a network RPC, False otherwise.
+        Determines if the given message is a network RPC (with serviceId).
         """
-        return self.is_rpc(message) and "sender" in message and bool(message.get("receiver"))
-
-
+        return self.is_rpc(message) and "serviceId" in message and bool(message.get("serviceId"))
 
     def is_broadcast_rpc(self, message: Dict) -> bool:
         """
         Determines if the given message is a broadcast RPC.
-        
-        A broadcast RPC is identified by:
-        - Being an RPC message.
-        - Having a "sender" field specified.
-        - The "receiver" field being set to "*", indicating the message is meant for all clients.
-
-        Parameters:
-            message (Dict): The message dictionary to check.
-
-        Returns:
-            bool: True if the message is a broadcast RPC, False otherwise.
         """
-        return self.is_rpc(message) and "sender" in message and message.get("receiver") == "*"
+        return self.is_rpc(message) and "serviceId" in message and message.get("serviceId") == "*"
+
+    def is_remote_to_local_response(self, message: Dict) -> bool:
+        """
+        Remote ➝ Local (RPC response)
+        - Type: 'rpc_response'
+        - Has 'clientId' to forward to browser
+        """
+        return self.is_rpc_response(message) and "clientId" in message
+
+    def is_service_to_service_rpc(self, message: Dict) -> bool:
+        """
+        Local Service ➝ Remote Service (not browser-originated)
+        - RPC
+        - No clientId (not related to browser)
+        """
+        return self.is_rpc(message) and "serviceId" in message and "clientId" not in message
+
+    def is_service_to_service_response(self, message: Dict) -> bool:
+        """
+        Remote ➝ Local (response to direct RPC, not for browser)
+        - 'rpc_response' without 'clientId'
+        """
+        return self.is_rpc_response(message) and "clientId" not in message
+    
 
 
+class MessageRouter(IEventDispatcher):
+    
+    def __init__(self, modules: Modules, conf=None, executor: ThreadPoolExecutor = None) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.__modules = modules
+        self.__message_classifier = MessageClassifier()
+        self.__message_directory = {}  # requestid -> client
+        self.__messages = Queue()    
 
+    
+    
     async def process_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
         Processes incoming messages and determines how to handle them.
-
-        If the message is a local RPC, it will be processed accordingly.
-
-        Parameters:
-            message (Dict): The incoming message.
-            client (IMessagingClient): The client that sent the message.
-
-        Returns:
-            None
         """
-        if self.is_local_rpc(message):
+        if self.__message_classifier.is_local_rpc(message):
             await self._process_local_rpc_messages(message, client)
-
+        elif self.__message_classifier.is_network_rpc(message):
+            await self._forward_to_remote_service(message, client)
+        elif self.__message_classifier.is_broadcast_rpc(message):
+            self.logger.info("Broadcast RPCs are not currently handled.")
+        else:
+            self.logger.warning("Received unsupported message format.")
 
     
+    
     async def _process_local_rpc_messages(self, message: Dict, client: IMessagingClient) -> None:
-        """
-        Processes incoming RPC messages from a client.
-
-        This function checks if the RPC Gateway module is available and processes the message
-        accordingly. If the message is a valid RPC request, it is forwarded to the RPC Gateway
-        for handling. Otherwise, an error response is sent to the client.
-
-        Args:
-            message (Dict): The incoming RPC message.
-            client (IMessagingClient): The client that sent the message.
-
-        Behavior:
-        - If the `RPC_GATEWAY_MODULE` is unavailable, an error response is immediately sent.
-        - If the message is an RPC request, it is processed by the RPC Gateway.
-        - If an exception occurs, an error response is sent to the client.
-        - Errors include `RPCError` (for known RPC issues) and general exceptions.
-        - Ensures error messages are sent back to the client if possible.
-        """
-
-        # Check if the RPC Gateway module is available
         if not self.__modules.hasModule(RPC_GATEWAY_MODULE):
             await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
             return
@@ -871,112 +856,68 @@ class MessageRouter(IEventDispatcher):
         err = None
 
         try:
-            # Check if the message is a valid RPC request and process it
             if rpcgateway.isRPC(message):
                 await rpcgateway.handleRPC(client, message)
             else:
                 self.logger.warning("Unknown message type received")
         except (RPCError, Exception) as e:
-            # Capture and log any errors that occur during processing
             err = str(e) if isinstance(e, RPCError) else f"Unknown error occurred: {e}"
             self.logger.error(err)
 
-        # If an error occurred and the client is still connected, send an error response
         if err and not client.is_closed():
             try:
                 await client.message_to_client(formatErrorRPCResponse(message["requestid"], err))
             except:
                 self.logger.warning(f"Unable to write message to client {client.id}")
 
+    
+    
+    async def _forward_to_remote_service(self, message: Dict, client: IMessagingClient) -> None:
+        """
+        Adds metadata and sends the RPC request to the remote service over MQTT.
+        """
         
+        if not self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+            await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
+            return
 
-
-
-class WebSocketClient(IModule):
-    '''
-    classdocs
-    '''
-
-
-    def __init__(self, conf):
-        '''
-        Constructor
-        '''
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.__connection = None
-        self.__connected = False
-        self.__url = None
+        federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
         
         
+        message["clientId"] = client.id
+        message["origin"] = os.environ["CLOUDISENSE_IDENTITY"]
+
+        requestid = message.get("requestid")
+        if requestid:
+            self.__message_directory[requestid] = client  # Track for response mapping
+
+        target_service_id = message["serviceId"]
+        topic = f"cloudisense/service/{target_service_id}/inbox"
+
+        try:
+            await federation_gateway.send_message(topic, message)
+            self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to forward RPC: {e}")
+            if requestid:
+                await client.message_to_client(formatErrorRPCResponse(requestid, str(e)))
+
     
     
-    '''
-        creates connection to remote endpoint
-    '''
-    async def connect(self, url, reconnect = False):
-        if(self.__connected == False):
-            
-            try:
-                self.__connection = await websocket_connect(url, connect_timeout=6000,
-                      ping_interval=15000, ping_timeout=3000)
-            except Exception as e:
-                self.logger.error("connection error. could not connect to remote endpoint " + url)
-            else:
-                self.logger.info("connected to remote endpoint " + url)
-                self.__connected = True
-                
-                '''
-                if reconnect == True:
-                    tornado.ioloop.IOLoop.current().spawn_callback(self.__tail, name)
-                '''
-                
-                self.__read_message()
-                
-    
-    
-    
-    '''
-        Special method to enforce reconnection to remote endpoint
-    '''
-    async def __reconnect(self):
-        if self.__connected is None and self.__url is not None:
-            await self.connect(self.__url)
-        
-    
-    
-    
-    '''
-        Read message from open websocket channel
-    '''
-    async def __read_message(self):
-        while True:
-            msg = await self.__connection.read_message()
-            if msg is None:
-                self.logger.info("connection to remote endpoint " + self.__url +"closed");
-                self.__connection = None
-                self.__connected = False
-                break
-    
-    
-    
-    
-    '''
-        Write message in open websocket channel
-    '''
-    async def write_message(self, message, binary = False):
-        if(self.__connected == True):
-            self.__connection.write_message(message, binary);
-                
-    
-    
-    
-    '''
-        Closes connection
-    '''
-    async def closeConnection(self, code = None, reason = None):
-        if(self.__connected == True):
-            self.__connection.close(code, reason)
-            self.__connection = None
-            self.__connected = False
-        
-  
+    async def handle_remote_response(self, response: Dict) -> None:
+        """
+        Handles RPC response from remote service and routes it to the correct client.
+        """
+        requestid = response.get("requestid")
+        client: IMessagingClient = self.__message_directory.pop(requestid, None)
+
+        if not client:
+            self.logger.warning(f"No client found for request ID: {requestid}")
+            return
+
+        if response.get("error"):
+            message = response.get("error")
+            await client.message_to_client(formatErrorRPCResponse(requestid, message))
+        else:
+            result = response.get("result")
+            await client.message_to_client(formatSuccessRPCResponse(requestid, result))
