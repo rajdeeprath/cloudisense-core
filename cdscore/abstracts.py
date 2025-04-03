@@ -146,12 +146,7 @@ class IRPCGateway(ABC):
     
     @abstractmethod
     def handleRPC(self, wshandler, message):
-        raise NotImplementedError   
-    
-    
-    @abstractmethod
-    def is_rpc(self, message):
-        raise NotImplementedError 
+        raise NotImplementedError       
 
 
 class IFederationGateway(ABC):
