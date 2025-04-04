@@ -48,6 +48,8 @@ EVENT_LOG_RECORDING_START = "log_record_start"
 
 EVENT_LOG_RECORDING_STOP = "log_record_stop"
 
+EVENT_FEDERATION_MESSAGE = "federation_message"
+
 EVENT_KEY = "__event__"
 
 
@@ -348,6 +350,25 @@ def PingEvent(
 ) -> EventType:
     return {
         "name": EVENT_PING_GENERATED,
+        "type": "event",
+        "status": "data",
+        "topic": topic,
+        "data": data,
+        "meta": meta,
+        "timestamp": utc_timestamp() if timestamp == None else timestamp
+    }
+    
+    
+
+# noinspection PyPep8Naming
+def FederationMessageEvent(
+    topic: Text,
+    data: Optional[Dict[Text, Any]] = None,
+    meta: Optional[Dict[Text, Any]] = None,
+    timestamp: Optional[float] = None,
+) -> EventType:
+    return {
+        "name": EVENT_FEDERATION_MESSAGE,
         "type": "event",
         "status": "data",
         "topic": topic,

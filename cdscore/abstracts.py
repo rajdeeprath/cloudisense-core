@@ -167,12 +167,12 @@ class IFederationGateway(ABC):
 
 
     @abstractmethod
-    def is_federation_connected(self) -> bool:
+    def is_connected(self) -> bool:
         """Returns True if federation is connected, otherwise False."""
         pass
     
     @abstractmethod
-    def send_message(self, topic: str, payload: Dict, headers=None) -> None:
+    def send_message(self, serviceId: str, payload: Dict, headers=None) -> None:
         """Sends a message to a given topic."""
         pass
     
@@ -214,6 +214,16 @@ class IFederationGateway(ABC):
     @abstractmethod
     def listen_for_private_messages(self, client, qos: int = 1):
         """Subscribes to private messages for the client."""
+        pass
+    
+    @abstractmethod
+    def on_message_handler(self) -> Callable:
+        """Getter for the on_message_handler."""
+        pass
+
+    @abstractmethod
+    def on_message_handler(self, handler: Callable) -> None:
+        """Setter for the on_message_handler."""
         pass
         
 

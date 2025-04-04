@@ -16,6 +16,7 @@
 
 
 
+import threading
 import uuid
 import json
 import logging
@@ -742,6 +743,28 @@ class ActionDispatcher(ITaskExecutor):
                         await pubsub.publish_event_type(event)
 
 
+class SafeLookupStore:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._store = {}
+
+    def set(self, key, value):
+        with self._lock:
+            self._store[key] = value
+
+    def get(self, key, default=None):
+        with self._lock:
+            return self._store.get(key, default)
+
+    def pop(self, key, default=None):
+        with self._lock:
+            return self._store.pop(key, default)
+
+    def has(self, key):
+        with self._lock:
+            return key in self._store
+        
+
 class MessageClassifier(object):
     
     def __init__(self) -> None:
@@ -827,14 +850,23 @@ class MessageRouter(IEventDispatcher):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.__modules = modules
         self.__message_classifier = MessageClassifier()
-        self.__message_directory = {}  # requestid -> client
-        self.__messages = Queue()    
+        self.__message_directory = SafeLookupStore()
+        self.__incoming_messages = Queue()   
+        self.initialize() 
 
+
+    def initialize(self) -> None:
+        if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+            federation_gateway.on_message_handler = self._handle_remote_message
+            
+        tornado.ioloop.IOLoop.current().spawn_callback(self.__process_messages)   
     
     
-    async def process_messages(self, message: Dict, client: IMessagingClient) -> None:
+    
+    async def handle_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
-        Processes incoming messages and determines how to handle them.
+        Processes incoming messages and determines how to handle them. 
         """
         if self.__message_classifier.is_local_rpc(message):
             await self._process_local_rpc_messages(message, client)
@@ -848,6 +880,18 @@ class MessageRouter(IEventDispatcher):
     
     
     async def _process_local_rpc_messages(self, message: Dict, client: IMessagingClient) -> None:
+        """
+        Handles incoming RPC messages intended for local services/modules.
+
+        - Validates the presence of the RPC Gateway module.
+        - Forwards the message to the local RPC handler if valid.
+        - Sends an error response to the client if the message is not a valid RPC
+        or if an error occurs during processing.
+
+        Args:
+            message (Dict): The incoming RPC message from the client.
+            client (IMessagingClient): The client connection that sent the message.
+        """
         if not self.__modules.hasModule(RPC_GATEWAY_MODULE):
             await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
             return
@@ -870,43 +914,84 @@ class MessageRouter(IEventDispatcher):
             except:
                 self.logger.warning(f"Unable to write message to client {client.id}")
 
+
     
     
     async def _forward_to_remote_service(self, message: Dict, client: IMessagingClient) -> None:
         """
-        Adds metadata and sends the RPC request to the remote service over MQTT.
+        Forwards RPC messages to a remote service via the Federation Gateway (typically using MQTT).
+
+        - Adds metadata (clientId and originId) to the message.
+        - Tracks the message in a directory for future response mapping.
+        - Sends the message to the target service if federation is connected.
+        - If the federation is unavailable or an error occurs, sends an error response to the client.
+
+        Args:
+            message (Dict): The RPC message to forward, expected to contain 'requestid' and 'serviceId'.
+            client (IMessagingClient): The client that initiated the request.
         """
-        
         if not self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
             return
 
         federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-        
-        
+
+        # append additional properties
         message["clientId"] = client.id
-        message["origin"] = os.environ["CLOUDISENSE_IDENTITY"]
+        message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
 
         requestid = message.get("requestid")
         if requestid:
-            self.__message_directory[requestid] = client  # Track for response mapping
+            self.__message_directory.set(requestid, tuple(message, client))  # Track for response mapping
 
         target_service_id = message["serviceId"]
-        topic = f"cloudisense/service/{target_service_id}/inbox"
 
         try:
-            await federation_gateway.send_message(topic, message)
+            if not federation_gateway.is_connected():
+                raise ConnectionError("Federation not connected")
+            await federation_gateway.send_message(target_service_id, message)
             self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
         except Exception as e:
             self.logger.error(f"Failed to forward RPC: {e}")
             if requestid:
                 await client.message_to_client(formatErrorRPCResponse(requestid, str(e)))
 
+
+
+
+    async def _handle_remote_message(self, message: Dict, client: "IMessagingClient" = None) -> None:
+        """
+        Handles incoming remote messages by adding them to the incoming messages queue.
+        
+        Parameters:
+        - message (Dict): The incoming message to be processed.
+        - client (IMessagingClient, optional): The client that sent the message (defaults to None).
+        
+        This function adds the message to the __incoming_messages queue for further processing.
+        In case of an error, it catches and logs the exception without affecting the message queue.
+        """
+        try:
+            await self.__incoming_messages.put(message)
+            self.logger.debug(f"Message successfully added to the queue: {message}")
+        except Exception as e:
+            self.logger.error(f"Error while adding message to the queue: {e}")
+    
     
     
     async def handle_remote_response(self, response: Dict) -> None:
         """
-        Handles RPC response from remote service and routes it to the correct client.
+        Handles RPC responses received from remote services via the Federation Gateway.
+
+        - Looks up the original client associated with the request using the request ID.
+        - If the client is found:
+            - Forwards either the result or error message back to the client.
+        - If the client is not found:
+            - Logs a warning indicating that the response could not be routed.
+
+        Args:
+            response (Dict): The RPC response from the remote service. Should contain:
+                            - 'requestid': ID used to map the response to a client.
+                            - 'result' or 'error': Response payload or error message.
         """
         requestid = response.get("requestid")
         client: IMessagingClient = self.__message_directory.pop(requestid, None)
@@ -921,3 +1006,37 @@ class MessageRouter(IEventDispatcher):
         else:
             result = response.get("result")
             await client.message_to_client(formatSuccessRPCResponse(requestid, result))
+
+
+    
+    
+    async def __process_messages(self):
+        """
+        Background task that continuously processes incoming messages from the queue.
+
+        - Waits for new messages on the `__incoming_messages` queue.
+        - Classifies the message type using the message classifier.
+        - If the message is an RPC response and matches a tracked request ID:
+            - Retrieves the associated client and forwards the response.
+        - Logs and handles other message types such as broadcasts and new RPC requests.
+        - Marks the message as processed via `task_done()` once handling is complete.
+        """
+        while True:
+            message: Dict = await self.__incoming_messages.get()
+            self.logger.debug(f"Processing message: {message}")            
+            requestid = message.get("requestid")                        
+
+            if self.__message_classifier.is_rpc_response(message):
+                self.logger.debug(f"Valid RPC response found")                    
+                if self.__message_directory.has(requestid):
+                    message, client = self.__message_directory.pop(requestid)
+                    self.handle_remote_response(message, client)
+            elif self.__message_classifier.is_broadcast_rpc(message):
+                self.logger.info(f"Broadcast message received for everyone")
+            elif self.__message_classifier.is_rpc(message):
+                self.logger.info(f"RPC message received")
+            else:
+                self.logger.warning(f"Unknown message type received")
+
+            self.logger.debug(f"Finished processing message for requestid: {requestid}")
+            self.__incoming_messages.task_done()
