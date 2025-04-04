@@ -833,14 +833,14 @@ class MessageClassifier(object):
         - RPC
         - No clientId (not related to browser)
         """
-        return self.is_rpc(message) and "serviceId" in message and "clientId" not in message
+        return self.is_rpc(message) and "serviceId" in message and "clientId" in message and message.get("clientId") == os.environ["CLOUDISENSE_IDENTITY"]
 
     def is_service_to_service_response(self, message: Dict) -> bool:
         """
         Remote ➝ Local (response to direct RPC, not for browser)
         - 'rpc_response' without 'clientId'
         """
-        return self.is_rpc_response(message) and "clientId" not in message
+        return self.is_rpc_response(message) and "serviceId" in message and message.get("serviceId") == os.environ["CLOUDISENSE_IDENTITY"]
     
 
 
@@ -869,9 +869,9 @@ class MessageRouter(IEventDispatcher):
         Processes incoming messages and determines how to handle them. 
         """
         if self.__message_classifier.is_local_rpc(message):
-            await self._process_local_rpc_messages(message, client)
+            await self._process_local_rpc(message, client)
         elif self.__message_classifier.is_network_rpc(message):
-            await self._forward_to_remote_service(message, client)
+            await self._process_remote_rpc(message, client)
         elif self.__message_classifier.is_broadcast_rpc(message):
             self.logger.info("Broadcast RPCs are not currently handled.")
         else:
@@ -879,7 +879,7 @@ class MessageRouter(IEventDispatcher):
 
     
     
-    async def _process_local_rpc_messages(self, message: Dict, client: IMessagingClient) -> None:
+    async def _process_local_rpc(self, message: Dict, client: IMessagingClient) -> None:
         """
         Handles incoming RPC messages intended for local services/modules.
 
@@ -900,7 +900,7 @@ class MessageRouter(IEventDispatcher):
         err = None
 
         try:
-            if rpcgateway.isRPC(message):
+            if self.__message_classifier.is_rpc(message):
                 await rpcgateway.handleRPC(client, message)
             else:
                 self.logger.warning("Unknown message type received")
@@ -917,9 +917,9 @@ class MessageRouter(IEventDispatcher):
 
     
     
-    async def _forward_to_remote_service(self, message: Dict, client: IMessagingClient) -> None:
+    async def _process_remote_rpc(self, message: Dict, client: IMessagingClient) -> None:
         """
-        Forwards RPC messages to a remote service via the Federation Gateway (typically using MQTT).
+        Sends RPC requests to a remote service via the Federation Gateway (typically using MQTT).
 
         - Adds metadata (clientId and originId) to the message.
         - Tracks the message in a directory for future response mapping.
@@ -941,14 +941,17 @@ class MessageRouter(IEventDispatcher):
         message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
 
         requestid = message.get("requestid")
-        if requestid:
-            self.__message_directory.set(requestid, tuple(message, client))  # Track for response mapping
-
-        target_service_id = message["serviceId"]
+        
 
         try:
             if not federation_gateway.is_connected():
                 raise ConnectionError("Federation not connected")
+            
+            if requestid:
+                self.__message_directory.set(requestid, tuple(message, client))  # Track for response mapping
+
+            target_service_id = message["serviceId"]
+            
             await federation_gateway.send_message(target_service_id, message)
             self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
         except Exception as e:
@@ -975,7 +978,7 @@ class MessageRouter(IEventDispatcher):
             self.logger.debug(f"Message successfully added to the queue: {message}")
         except Exception as e:
             self.logger.error(f"Error while adding message to the queue: {e}")
-    
+        
     
     
     async def handle_remote_response(self, response: Dict) -> None:
@@ -1022,19 +1025,22 @@ class MessageRouter(IEventDispatcher):
         - Marks the message as processed via `task_done()` once handling is complete.
         """
         while True:
-            message: Dict = await self.__incoming_messages.get()
-            self.logger.debug(f"Processing message: {message}")            
-            requestid = message.get("requestid")                        
+            incoming_message: Dict = await self.__incoming_messages.get()
+            self.logger.debug(f"Processing message: {incoming_message}")            
+            requestid = incoming_message.get("requestid")                        
 
-            if self.__message_classifier.is_rpc_response(message):
-                self.logger.debug(f"Valid RPC response found")                    
+            if self.__message_classifier.is_rpc_response(incoming_message):
+                self.logger.debug(f"RPC response found")                    
                 if self.__message_directory.has(requestid):
                     message, client = self.__message_directory.pop(requestid)
-                    self.handle_remote_response(message, client)
-            elif self.__message_classifier.is_broadcast_rpc(message):
+                    await self.handle_remote_response(message, client)
+            elif self.__message_classifier.is_rpc(incoming_message):
+                self.logger.debug(f"RPC request found")  
+                await self._process_local_rpc(incoming_message)
+            elif self.__message_classifier.is_broadcast_rpc(incoming_message):
                 self.logger.info(f"Broadcast message received for everyone")
-            elif self.__message_classifier.is_rpc(message):
-                self.logger.info(f"RPC message received")
+            elif self.__message_classifier.is_rpc(incoming_message):
+                self.logger.info(f"RPC message received from remote service")
             else:
                 self.logger.warning(f"Unknown message type received")
 
