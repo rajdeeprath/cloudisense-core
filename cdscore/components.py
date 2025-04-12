@@ -26,7 +26,7 @@ import logging
 import tornado
 import copy
 
-from typing import Dict, Set
+from typing import Callable, Dict, Set
 from tornado.queues import Queue
 from smalluuid import SmallUUID
 from time import time
@@ -843,6 +843,37 @@ class MessageClassifier(object):
         return self.is_rpc_response(message) and "serviceId" in message and message.get("serviceId") == os.environ["CLOUDISENSE_IDENTITY"]
     
 
+class RemoteMessagingClient(IMessagingClient):
+    """
+    Virtual client wrapper for a remote Cloudisense instance that sent a message via Federation (MQTT).
+    This allows the system to treat remote services like clients and route responses uniformly.
+    """
+
+    def __init__(self, origin_id: str, federation: IFederationGateway):
+        self.id = origin_id
+        self._federation = federation
+
+    def is_closed(self) -> bool:
+        """
+        Always returns False — federation is considered always available for routing.
+        """
+        return not self._federation.is_connected()
+    
+
+    async def message_to_client(self, message: Dict) -> None:
+        """
+        Sends the response back to the origin via the Federation Gateway.
+        """
+        if not self._federation.is_connected():
+            raise ConnectionError(f"Cannot send message: federation disconnected (target: {self.id})")
+
+        await self._federation.send_message(self.id, message)
+
+    
+    def __repr__(self):
+        return f"<RemoteMessagingClient id={self.id}>"
+
+
 
 class MessageRouter(IEventDispatcher):
     
@@ -949,6 +980,7 @@ class MessageRouter(IEventDispatcher):
             
             if requestid:
                 self.__message_directory.set(requestid, tuple(message, client))  # Track for response mapping
+                
 
             target_service_id = message["serviceId"]
             
@@ -981,6 +1013,7 @@ class MessageRouter(IEventDispatcher):
         
     
     
+    
     async def handle_remote_response(self, response: Dict) -> None:
         """
         Handles RPC responses received from remote services via the Federation Gateway.
@@ -1011,6 +1044,62 @@ class MessageRouter(IEventDispatcher):
             await client.message_to_client(formatSuccessRPCResponse(requestid, result))
 
 
+
+    async def _handle_broadcast_rpc(self, message: Dict) -> None:
+        """
+        Handles broadcast RPC messages (serviceId="*") received from the cluster.
+        Invokes the RPC locally without expecting a response (fire-and-forget).
+        """
+        if self.__modules.hasModule(RPC_GATEWAY_MODULE):
+            rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
+            try:
+                await rpcgateway.handleRPC(None, message)  # No client context
+            except Exception as e:
+                self.logger.error(f"Broadcast RPC handling failed: {e}")
+        else:
+            self.logger.warning("RPC_GATEWAY_MODULE not present; cannot handle broadcast.")
+
+
+
+
+    async def initiate_remote_rpc(self, service_id: str, intent: str, params: Dict, on_response: Callable = None):
+        """
+        Initiates an RPC call from the local Cloudisense instance to a remote Cloudisense service.
+
+        This method is used internally (not by browser clients) to invoke a method on a remote node 
+        via the Federation Gateway (MQTT). Optionally registers a callback to handle the response 
+        when it returns.
+
+        Args:
+            service_id (str): The target Cloudisense instance to route the RPC to.
+            intent (str): The name of the remote method or action to call.
+            params (Dict): Dictionary of parameters to pass along with the RPC call.
+            on_response (Callable, optional): A coroutine or function to handle the response.
+                                            If provided, it is stored and triggered when
+                                            the response arrives via federation.
+
+        Behavior:
+            - Generates a unique request ID.
+            - Constructs a well-formed RPC message including origin metadata.
+            - Stores the request ID and response handler (if any) in `__message_directory`.
+            - Sends the message over the Federation Gateway to the target service.
+        """
+        requestid = str(uuid.uuid4())
+        message = {
+            "type": "rpc",
+            "requestid": requestid,
+            "method": intent,
+            "params": params,
+            "serviceId": service_id,
+            "clientId": "__internal__",
+            "originId": os.environ["CLOUDISENSE_IDENTITY"]
+        }
+
+        self.__message_directory.set(requestid, on_response)
+        federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+        await federation.send_message(service_id, message)
+
+
     
     
     async def __process_messages(self):
@@ -1027,22 +1116,36 @@ class MessageRouter(IEventDispatcher):
         while True:
             incoming_message: Dict = await self.__incoming_messages.get()
             self.logger.debug(f"Processing message: {incoming_message}")            
-            requestid = incoming_message.get("requestid")                        
+            requestid = incoming_message.get("requestid")     
+            origin_id = incoming_message.get("originId")                   
 
             if self.__message_classifier.is_rpc_response(incoming_message):
                 self.logger.debug(f"RPC response found")                    
-                if self.__message_directory.has(requestid):
-                    message, client = self.__message_directory.pop(requestid)
-                    await self.handle_remote_response(message, client)
+                if self.__message_directory.has(requestid):                    
+                    entry = self.__message_directory.pop(requestid)
+                    if callable(entry):
+                        await entry(incoming_message)
+                    elif isinstance(entry, tuple):
+                        message, client = entry
+                        await self.handle_remote_response(message, client)
+                    
             elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.debug(f"RPC request found")  
-                await self._process_local_rpc(incoming_message)
+                self.logger.info(f"RPC message received from remote service")  
+                if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+                    federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+                    remote_client = RemoteMessagingClient(origin_id, federation_gateway)
+                    await self._process_local_rpc(incoming_message, remote_client)                
+                    
+                    
             elif self.__message_classifier.is_broadcast_rpc(incoming_message):
                 self.logger.info(f"Broadcast message received for everyone")
-            elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.info(f"RPC message received from remote service")
+                if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
+                    await self._handle_broadcast_rpc(incoming_message)
+                
+            
             else:
                 self.logger.warning(f"Unknown message type received")
 
+            
             self.logger.debug(f"Finished processing message for requestid: {requestid}")
             self.__incoming_messages.task_done()
