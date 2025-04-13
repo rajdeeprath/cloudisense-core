@@ -171,6 +171,15 @@ class IFederationGateway(ABC):
         """Returns True if federation is connected, otherwise False."""
         pass
     
+    
+    @abstractmethod
+    def is_client_online(self, client_id: str) -> bool:
+        """
+        Checks whether a remote Cloudisense node is currently connected to the federation mesh.
+        """
+        pass    
+        
+    
     @abstractmethod
     def send_message(self, serviceId: str, payload: Dict, headers=None) -> None:
         """Sends a message to a given topic."""

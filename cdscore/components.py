@@ -496,248 +496,243 @@ class VirtualHandler(object):
 
 
 
-
-
 class ActionDispatcher(ITaskExecutor):
-    '''
-    classdocs
-    '''
+    """
+    Responsible for registering and executing actions associated with intents.
+    Handles both queue-based and direct execution of asynchronous or synchronous actions.
+    Supports automatic mapping of built-in intents to built-in actions.
+    """
 
+    def __init__(self, modules: Modules, conf=None, executor: ThreadPoolExecutor = None):
+        """
+        Initializes the ActionDispatcher.
 
-    def __init__(self, modules:Modules, conf = None, executor:ThreadPoolExecutor = None):
-        '''
-        Constructor
-        '''
+        Args:
+            modules (Modules): Module registry.
+            conf (dict, optional): Configuration dictionary.
+            executor (ThreadPoolExecutor, optional): Optional executor for running synchronous actions.
+        """
         super().__init__()
-    
         self.logger = logging.getLogger(self.__class__.__name__)
         self.__conf = conf
         self.__modules = modules
         self.__action_book = {}
         self.__request_register = {}
-        self.__executor = executor  if executor is not None else executor        
+        self.__executor = executor if executor is not None else executor
         tornado.ioloop.IOLoop.current().spawn_callback(self.__initialize)
-    pass
 
-
-
-    def __initialize(self):
-        
-        # To do build intent-action map
+    
+    async def __initialize(self):
+        """
+        Initializes internal mappings of built-in intents to corresponding actions.
+        """
         for intent_name in built_in_intents():
-            
             try:
                 action_name = str(intent_name).replace(INTENT_PREFIX, ACTION_PREFIX)
-                action:Action = action_from_name(action_name)
-                
+                action: Action = action_from_name(action_name)
+
                 if action:
                     self.registerActionforIntent(intent_name, action)
-                    self.logger.debug("Registered intent by name" + intent_name + " for action " + action_name)
+                    self.logger.debug("Registered intent by name " + intent_name + " for action " + action_name)
                 else:
-                    raise TypeError("'action' for intent " + intent_name + " was None, where object of type 'Action' was expected") 
-           
+                    raise TypeError("'action' for intent " + intent_name + " was None, expected Action object")
+
             except TypeError as te:
                 self.logger.warning(str(te))
-                pass
 
+    
+    def registerActionforIntent(self, intent_name: Text, action: Action):
+        """
+        Registers a specific Action object for a given intent.
 
-
-
-
-    def registerActionforIntent(self, intent_name:Text, action:Action):
-        
+        Args:
+            intent_name (str): The intent identifier.
+            action (Action): The action implementation.
+        """
         if intent_name in self.__action_book:
-            raise ValueError("intent "+intent_name+" is already registered for an action")
-        
-        self.__action_book[intent_name] = {"action": action, "requests": Queue(maxsize=5)} 
+            raise ValueError("Intent " + intent_name + " is already registered")
+
+        self.__action_book[intent_name] = {"action": action, "requests": Queue(maxsize=5)}
         tornado.ioloop.IOLoop.current().spawn_callback(self.__task_processor, intent_name)
-        
-        pass
+
     
-    
-    
-    
-    
-    def registerActionByNameforIntent(self, intent_name:Text, action_name:Text):
-        
-        
-        actions_names = builtin_action_names()
-        
-        if action_name not in actions_names:
-            raise ValueError("Invalid action name "+action_name)
-        
+    def registerActionByNameforIntent(self, intent_name: Text, action_name: Text):
+        """
+        Registers an Action object for a given intent using the action's name.
+
+        Args:
+            intent_name (str): The intent identifier.
+            action_name (str): The string name of the action to bind.
+        """
+        if action_name not in builtin_action_names():
+            raise ValueError("Invalid action name " + action_name)
+
         if intent_name in self.__action_book:
-            raise ValueError("intent "+intent_name+" is already registered for an action")
-        
-        action:Action = action_from_name(action_name)
-        
-        self.__action_book[intent_name] =  {"action": action, "requests": Queue(maxsize=5)} # make 5 configurable
+            raise ValueError("Intent " + intent_name + " is already registered")
+
+        action: Action = action_from_name(action_name)
+        self.__action_book[intent_name] = {"action": action, "requests": Queue(maxsize=5)}
         tornado.ioloop.IOLoop.current().spawn_callback(self.__task_processor, intent_name)
-        
-        pass
+
     
-    
-    
-    '''
-        Accepts parameters and creates a request object
-    '''     
-    def _build_request(self, requester:IntentProvider, intent:Text, params:object):
-        
-        command_params = None
-        
-        if isinstance(params,str):
+    def _build_request(self, requester: IntentProvider, intent: Text, params: object):
+        """
+        Builds a well-structured request object from incoming parameters.
+
+        Args:
+            requester (IntentProvider): The source of the request.
+            intent (str): Intent identifier.
+            params (object): Parameter payload (dict, JSON string, or list).
+
+        Returns:
+            dict: Structured request object.
+        """
+        if isinstance(params, str):
             params = json.loads(params)
         elif isinstance(params, list):
-            it = iter(params)
-            params = dict(zip(it, it))
+            params = dict(zip(params[::2], params[1::2]))
         elif not isinstance(params, dict):
-            raise ValueError("incompatible param type. dict is required")
-            
-        
+            raise ValueError("Incompatible param type. dict is required")
+
         return {
             "requestid": SmallUUID().hex,
-            "requester":requester,
+            "requester": requester,
             "intent": intent,
             "params": params,
             "timestamp": int(round(time() * 1000))
         }
-        pass
+
     
-    
-    
-    
-    
-    
-    '''
-        Handles intent requests from -> requesters must implement special interface to be notified of result, error or progress
-    ''' 
-    async def handle_request(self, requester:IntentProvider, intent:Text, params:dict, event:EventType=None):
-        
-        ''' if we have event info pass that to action as well '''
+    async def handle_request(self, requester: IntentProvider, intent: Text, params: dict, event: EventType = None):
+        """
+        Handles an intent request by queuing it for background processing.
+
+        Args:
+            requester (IntentProvider): Caller to notify about result.
+            intent (str): Intent name.
+            params (dict): Intent parameters.
+            event (EventType, optional): Optional event info to merge into params.
+
+        Returns:
+            str: The generated request ID.
+        """
         if event:
             params = self.merge_parameters(params, event)
-        
+
         intent_name = (INTENT_PREFIX + intent) if not intent.startswith(INTENT_PREFIX) else intent
-        
         if intent_name not in self.__action_book:
             raise KeyError("Unknown intent " + intent_name)
-        
-        req_queue:Queue = self.__action_book[intent_name]["requests"]
+
+        req_queue: Queue = self.__action_book[intent_name]["requests"]
         req = self._build_request(requester, intent, params)
         self.__request_register[req["requestid"]] = req
-        
+
         await req_queue.put(req)
         return req["requestid"]
+
     
-    
-    
-    
-    '''
-        Handles intent requests from -> requesters must implement special interface to be notified of result, error or progress
-    ''' 
-    async def handle_request_direct(self, requester:IntentProvider, intent:Text, params:dict):
-        
+    async def handle_request_direct(self, requester: IntentProvider, intent: Text, params: dict):
+        """
+        Executes an intent request immediately, without queuing.
+
+        Args:
+            requester (IntentProvider): Caller to notify.
+            intent (str): Intent name.
+            params (dict): Intent parameters.
+
+        Returns:
+            any: Result returned by the action.
+        """
         intent_name = (INTENT_PREFIX + intent) if not intent.startswith(INTENT_PREFIX) else intent
-        
+
         if intent_name not in self.__action_book:
             raise KeyError("Unknown intent " + intent_name)
-        
-        response = None
-        requester:IntentProvider = None
-        events:List[EventType] = None
-        executable:Action = None
-    
+
+        events = None
+        executable = None
+
         try:
-            action:Action = self.__action_book[intent_name]["action"]
-            executable = copy.deepcopy(action)          
-            result:ActionResponse = None
-            
+            action: Action = self.__action_book[intent_name]["action"]
+            executable = copy.deepcopy(action)
+
             if action.is_async():
-                result = await executable.execute(requester, self.__modules, params)
+                result: ActionResponse = await executable.execute(requester, self.__modules, params)
             else:
-                result = await IOLoop.current().run_in_executor(
+                result: ActionResponse = await IOLoop.current().run_in_executor(
                     self.__executor,
                     executable.execute, requester, self.__modules, params
-                    )
-            
+                )
+
             events = result.events
             return result.data
-                             
+
         except Exception as e:
-            
-            err = "Error executing action " + str(e)                
-            self.logger.debug(err)
-            raise ActionError(err)
-                    
+            self.logger.debug("Error executing action: %s", str(e))
+            raise ActionError("Error executing action " + str(e))
+
         finally:
-            
-            if executable != None:
-                del executable 
-                executable = None
-            
-            
-            if events != None:
+            if executable:
+                del executable
+            if events:
                 pubsub = self.__modules.getModule(PUBSUBHUB_MODULE)
                 for event in events:
                     await pubsub.publish_event_type(event)
+
     
+    def merge_parameters(self, params, event: EventType):
+        """
+        Merges event metadata into the parameter dictionary.
+
+        Args:
+            params (dict): Base parameters.
+            event (EventType): Event metadata.
+
+        Returns:
+            dict: Merged parameter dictionary.
+        """
+        return {**params, EVENT_KEY: event}
+
     
-    
-    ''' Merges event sict into parameters dict '''
-    def merge_parameters(self, params, event:EventType):
-        event_dict = {EVENT_KEY:event}
-        return{**params, **event_dict}        
-    
-    
-    
-    '''
-        Task Queue Processor - (Per Intent loop)
-    '''
     async def __task_processor(self, intent_name):
+        """
+        Task queue processor loop for an intent. Handles requests one by one.
+
+        Args:
+            intent_name (str): The intent to process.
+        """
         while True:
-            
-            if not intent_name in self.__action_book:
+            if intent_name not in self.__action_book:
                 break
-            
-            task_queue:Queue = self.__action_book[intent_name]["requests"]
-            requestid:str = None
-            
-            response = None
-            requester:IntentProvider = None
-            events:List[EventType] = None
-        
+
+            task_queue: Queue = self.__action_book[intent_name]["requests"]
+            requestid = None
+            events = None
+
             try:
                 task_definition = await task_queue.get()
-                
                 requestid = task_definition["requestid"]
-                intent:str = task_definition["intent"]
-                args:dict = task_definition["params"]
-                requester:IntentProvider = task_definition["requester"]
-                action:Action = self.__action_book[intent_name]["action"]
-                
-                executable = copy.deepcopy(action)  
-                # implement flywheeel pattern here              
-                result:ActionResponse = await executable.execute(requester, self.__modules, args)
+                requester: IntentProvider = task_definition["requester"]
+                args: dict = task_definition["params"]
+
+                action: Action = self.__action_book[intent_name]["action"]
+                executable = copy.deepcopy(action)
+
+                result: ActionResponse = await executable.execute(requester, self.__modules, args)
                 events = result.events
-                
+
                 if requester:
-                    await  requester.onIntentProcessResult(requestid, result.data)
-                                 
+                    await requester.onIntentProcessResult(requestid, result.data)
+
             except Exception as e:
-                
-                err = "Error executing action " + str(e)                
-                self.logger.debug(err)
-                
+                self.logger.debug("Error executing action: %s", str(e))
                 if requester:
-                    await  requester.onIntentProcessError(requestid, e) 
-                
+                    await requester.onIntentProcessError(requestid, e)
+
             finally:
                 task_queue.task_done()
-                
-                if requestid != None:
+                if requestid in self.__request_register:
                     del self.__request_register[requestid]
-                                
-                if events != None:
+                if events:
                     pubsub = self.__modules.getModule(PUBSUBHUB_MODULE)
                     for event in events:
                         await pubsub.publish_event_type(event)
@@ -850,7 +845,7 @@ class RemoteMessagingClient(IMessagingClient):
     """
 
     def __init__(self, origin_id: str, federation: IFederationGateway):
-        self.id = origin_id
+        self.id = origin_id # every cloudisense instance must have a uniue id
         self._federation = federation
 
     def is_closed(self) -> bool:
@@ -866,6 +861,9 @@ class RemoteMessagingClient(IMessagingClient):
         """
         if not self._federation.is_connected():
             raise ConnectionError(f"Cannot send message: federation disconnected (target: {self.id})")
+        
+        if not self._federation.is_client_online():
+            raise ConnectionError(f"Cannot send message: client is not connected to federation anymore (target: {self.id})")
 
         await self._federation.send_message(self.id, message)
 
