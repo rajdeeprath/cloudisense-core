@@ -845,8 +845,10 @@ class RemoteMessagingClient(IMessagingClient):
     """
 
     def __init__(self, origin_id: str, federation: IFederationGateway):
-        self.id = origin_id # every cloudisense instance must have a uniue id
+        self._id = origin_id # every cloudisense instance must have a uniue id
         self._federation = federation
+
+
 
     def is_closed(self) -> bool:
         """
@@ -854,6 +856,12 @@ class RemoteMessagingClient(IMessagingClient):
         """
         return not self._federation.is_connected()
     
+    @property
+    def id(self) -> str:
+        """
+        Required by IMessagingClient. Returns the client ID.
+        """
+        return self._id
 
     async def message_to_client(self, message: Dict) -> None:
         """
@@ -862,14 +870,14 @@ class RemoteMessagingClient(IMessagingClient):
         if not self._federation.is_connected():
             raise ConnectionError(f"Cannot send message: federation disconnected (target: {self.id})")
         
-        if not self._federation.is_client_online():
+        if not self._federation.is_client_online(self._id):
             raise ConnectionError(f"Cannot send message: client is not connected to federation anymore (target: {self.id})")
 
-        await self._federation.send_message(self.id, message)
+        await self._federation.send_message(self._id, message)
 
     
     def __repr__(self):
-        return f"<RemoteMessagingClient id={self.id}>"
+        return f"<RemoteMessagingClient id={self._id}>"
 
 
 
@@ -1060,7 +1068,7 @@ class MessageRouter(IEventDispatcher):
 
 
 
-    async def initiate_remote_rpc(self, service_id: str, intent: str, params: Dict, on_response: Callable = None):
+    async def initiate_remote_rpc(self, service_id: str, intent: str, params: Dict, on_response: Callable):
         """
         Initiates an RPC call from the local Cloudisense instance to a remote Cloudisense service.
 
@@ -1086,7 +1094,7 @@ class MessageRouter(IEventDispatcher):
         message = {
             "type": "rpc",
             "requestid": requestid,
-            "method": intent,
+            "intent": intent,
             "params": params,
             "serviceId": service_id,
             "clientId": "__internal__",
@@ -1095,7 +1103,7 @@ class MessageRouter(IEventDispatcher):
 
         self.__message_directory.set(requestid, on_response)
         federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-        await federation.send_message(service_id, message)
+        federation.send_message(service_id, message)
 
 
     

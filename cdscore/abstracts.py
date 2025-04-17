@@ -173,7 +173,7 @@ class IFederationGateway(ABC):
     
     
     @abstractmethod
-    def is_client_online(self, client_id: str) -> bool:
+    def is_client_online(self, client_id:str) -> bool:
         """
         Checks whether a remote Cloudisense node is currently connected to the federation mesh.
         """

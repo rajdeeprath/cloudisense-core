@@ -279,7 +279,7 @@ def formatAckMQTTResponse(requestid, code=200):
 def formatSuccessRPCResponse(requestid, data, code=200):
     return {
             "requestid": str(requestid),
-            "type": "rpc",
+            "type": "rpc_response",
             "status": "success",
             "code": code,
             "data": data,
@@ -291,7 +291,7 @@ def formatSuccessRPCResponse(requestid, data, code=200):
 def formatErrorRPCResponse(requestid, message, code=400):
     return {
             "requestid": str(requestid),
-            "type": "rpc",
+            "type": "rpc_response",
             "status": "error",
             "code": code,
             "message": message,
