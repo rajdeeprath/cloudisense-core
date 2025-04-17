@@ -185,6 +185,13 @@ class IFederationGateway(ABC):
         """Sends a message to a given topic."""
         pass
     
+    
+    @abstractmethod
+    def send_broadcast(self, payload:Dict, headers=None)-> None:
+        """Sends a broadcast to all clients."""
+        pass
+    
+    
     @abstractmethod
     def on_connect(self, client, flags, rc, properties):
         """Handles MQTT connection events."""

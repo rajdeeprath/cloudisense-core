@@ -41,7 +41,7 @@ from cdscore.constants import *
 from cdscore.event import *
 from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
 from cdscore.exceptions import ActionError, RPCError
-from cdscore.helpers import formatErrorRPCResponse, formatRemoteRPCRequest, formatSuccessRPCResponse
+from cdscore.helpers import formatErrorRPCResponse, formatFederationBroadcastRequest, formatRemoteRPCRequest, formatSuccessRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
 from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from cdscore.types import Modules
@@ -1099,8 +1099,16 @@ class MessageRouter(IEventDispatcher):
         self.__message_directory.set(requestid, on_response)
         federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
         federation.send_message(service_id, message)
-
-
+    
+    
+    
+    async def initiate_remote_broadcast(self, intent: str, params: Dict) -> None:
+        
+        requestid = str(uuid.uuid4())
+        message =  formatFederationBroadcastRequest(requestid, intent, params, os.environ["CLOUDISENSE_IDENTITY"])
+        federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+        federation.send_broadcast(message)
+        
     
     
     async def __process_messages(self):
