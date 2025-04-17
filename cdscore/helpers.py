@@ -307,6 +307,19 @@ def formatSuccessResponse(data, code=200):
             }
 
 
+def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_service_id:str, originId:str):
+    return {
+            "type": "rpc",
+            "requestid": requestid,
+            "intent": intent,
+            "params": params,
+            "serviceId": target_service_id,
+            "clientId": "__internal__",
+            "originId": originId
+    }
+    
+    
+
 def getTokensAuthorizationTokens(request: httputil.HTTPServerRequest):
     bearer_data:str = request.headers.get("Authorization", None)
     if bearer_data != None:

@@ -41,7 +41,7 @@ from cdscore.constants import *
 from cdscore.event import *
 from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
 from cdscore.exceptions import ActionError, RPCError
-from cdscore.helpers import formatErrorRPCResponse, formatSuccessRPCResponse
+from cdscore.helpers import formatErrorRPCResponse, formatRemoteRPCRequest, formatSuccessRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
 from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from cdscore.types import Modules
@@ -1091,16 +1091,8 @@ class MessageRouter(IEventDispatcher):
             - Sends the message over the Federation Gateway to the target service.
         """
         requestid = str(uuid.uuid4())
-        message = {
-            "type": "rpc",
-            "requestid": requestid,
-            "intent": intent,
-            "params": params,
-            "serviceId": service_id,
-            "clientId": "__internal__",
-            "originId": os.environ["CLOUDISENSE_IDENTITY"]
-        }
-
+        message =  formatRemoteRPCRequest(requestid, intent, params, service_id, os.environ["CLOUDISENSE_IDENTITY"])
+        
         self.__message_directory.set(requestid, on_response)
         federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
         federation.send_message(service_id, message)
