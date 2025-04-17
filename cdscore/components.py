@@ -1051,19 +1051,22 @@ class MessageRouter(IEventDispatcher):
 
 
 
+
     async def _handle_broadcast_rpc(self, message: Dict) -> None:
         """
         Handles broadcast RPC messages (serviceId="*") received from the cluster.
         Invokes the RPC locally without expecting a response (fire-and-forget).
         """
-        if self.__modules.hasModule(RPC_GATEWAY_MODULE):
-            rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
-            try:
-                await rpcgateway.handleRPC(None, message)  # No client context
-            except Exception as e:
-                self.logger.error(f"Broadcast RPC handling failed: {e}")
-        else:
-            self.logger.warning("RPC_GATEWAY_MODULE not present; cannot handle broadcast.")
+        if not self.__modules.hasModule(RPC_GATEWAY_MODULE):
+            self.logger.warning("Broadcast RPC ignored: RPC_GATEWAY_MODULE is not available.")
+            return
+        
+        rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
+        
+        try:
+            await rpcgateway.handleRPC(None, message)  # No client context
+        except Exception as e:
+            self.logger.error(f"Broadcast RPC handling failed: {e}")
 
 
 
