@@ -317,7 +317,20 @@ def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_servic
             "clientId": "__internal__",
             "originId": originId
     }
-    
+
+
+
+def formatFederationBroadcastRequest(requestid:str, intent:str, params:dict, originId:str):
+    return {
+            "type": "rpc",
+            "requestid": requestid,
+            "intent": intent,
+            "params": params,
+            "serviceId": "*",
+            "clientId": "__internal__",
+            "originId": originId
+    }
+        
     
 
 def getTokensAuthorizationTokens(request: httputil.HTTPServerRequest):
