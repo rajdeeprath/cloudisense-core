@@ -896,8 +896,8 @@ class MessageRouter(IEventDispatcher):
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
             federation_gateway.on_message_handler = self._handle_remote_message
-            federation_gateway.on_connect_handler = self._handle_client_connect
-            federation_gateway.on_disconnect_handler = self._handle_client_disconnect
+            federation_gateway.on_client_connect_handler = self._handle_client_connect
+            federation_gateway.on_client_disconnect_handler = self._handle_client_disconnect
             
         tornado.ioloop.IOLoop.current().spawn_callback(self.__process_messages)   
     
