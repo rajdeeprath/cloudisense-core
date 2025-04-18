@@ -908,7 +908,7 @@ class MessageRouter(IEventDispatcher):
     
     
     async def _handle_client_disconnect(self, client_id:str)->None:
-        self.logger.disconencted(f"connected {client_id}")
+        self.logger.info(f"disconnected {client_id}")
         pass
     
     
