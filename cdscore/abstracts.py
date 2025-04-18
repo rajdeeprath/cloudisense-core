@@ -919,6 +919,84 @@ class ISystemCore(ABC):
         pass
 
 
+class IPubSubHub(ABC):
+    """
+    Abstract interface for a Pub/Sub event hub that supports
+    channel-based communication and streaming between clients.
+    """
+
+    @property
+    @abstractmethod
+    def channels(self) -> Dict[str, tuple]:
+        """Returns the current channel configuration."""
+        pass
+
+    @channels.setter
+    @abstractmethod
+    def channels(self, _channels: Dict[str, tuple]) -> None:
+        """Sets the entire channels structure (used during initialization)."""
+        pass
+
+    @abstractmethod
+    def addEventListener(self, listener: 'IEventHandler') -> None:
+        """Registers an event listener for channel events."""
+        pass
+
+    @abstractmethod
+    def removeEventListener(self, listener: 'IEventHandler') -> None:
+        """Removes a previously registered event listener."""
+        pass
+
+    @abstractmethod
+    def getEventListeners(self) -> List['IEventHandler']:
+        """Returns a list of all currently registered event listeners."""
+        pass
+
+    @abstractmethod
+    def subscribe(self, topicname: str, client: IMessagingClient = None) -> None:
+        """Subscribes a client to a specific topic."""
+        pass
+
+    @abstractmethod
+    def subscribe_topics(self, topics: List[str], client: IMessagingClient) -> None:
+        """Subscribes a client to multiple topics."""
+        pass
+
+    @abstractmethod
+    def unsubscribe(self, topicname: str, client: IMessagingClient) -> None:
+        """Unsubscribes a client from a specific topic."""
+        pass
+
+    @abstractmethod
+    def clearsubscriptions(self, client: IMessagingClient) -> None:
+        """Unsubscribes the given client from all channels it is part of."""
+        pass
+
+    @abstractmethod
+    def createChannel(self, channel_info: Dict, channel_type: str = "bidirectional") -> None:
+        """Creates a new channel using the given channel info and type."""
+        pass
+
+    @abstractmethod
+    def removeChannel(self, topicname: str) -> None:
+        """Deletes the specified channel and all of its subscriptions."""
+        pass
+
+    @abstractmethod
+    async def publish(self, topicname: str, message: Dict, client: IMessagingClient = None) -> None:
+        """Publishes a message to a topic (optionally from a specific client)."""
+        pass
+
+    @abstractmethod
+    async def publish_notification(self, event: Dict) -> None:
+        """Publishes a generic event notification to interested clients."""
+        pass
+
+    @abstractmethod
+    async def publish_event_type(self, event: EventType) -> None:
+        """Publishes a structured event to all subscribed clients."""
+        pass
+
 
 class ISystemMonitor(ABC):
     

@@ -28,7 +28,7 @@ from cdscore import types
 from cdscore.constants import *
 from cdscore.event import EventType, StartLogRecordingEvent, StopLogRecordingEvent
 from cdscore.constants import SMTP_MAILER_MODULE, TOPIC_LOG_ACTIONS, FILE_MANAGER_MODULE, LOG_MANAGER_MODULE
-from cdscore.abstracts import IFileSystemOperator, IntentProvider, IMailer, TargetProcess
+from cdscore.abstracts import IPubSubHub, IFileSystemOperator, IntentProvider, IMailer, TargetProcess
 from cdscore.helpers import *
 
 
@@ -836,14 +836,11 @@ class ActionSubcribeChannel(Action):
         __pubsubhub = None
         
         if modules.hasModule(PUBSUBHUB_MODULE):
-            __pubsubhub = modules.getModule(PUBSUBHUB_MODULE)
+            __pubsubhub:IPubSubHub = modules.getModule(PUBSUBHUB_MODULE)
         
         if(__pubsubhub != None):
             handler = params["handler"]
             topic = params["topic"]
-            # finalparams = params.copy() 
-            #if(len(finalparams)>1):
-            #    finalparams = finalparams[2:]
             __pubsubhub.subscribe(topic, handler)
             return ActionResponse(data = None, events=[])
         else:
@@ -872,7 +869,7 @@ class ActionUnSubcribeChannel(Action):
         __pubsubhub = None
         
         if modules.hasModule("pubsub"):
-            __pubsubhub = modules.getModule("pubsub")
+            __pubsubhub:IPubSubHub = modules.getModule("pubsub")
             handler = params["handler"]
             topic = params["topic"]       
             __pubsubhub.unsubscribe(topic, handler)

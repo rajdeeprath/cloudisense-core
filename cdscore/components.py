@@ -39,7 +39,7 @@ from string import ascii_letters
 
 from cdscore.constants import *
 from cdscore.event import *
-from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
+from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IPubSubHub, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
 from cdscore.exceptions import ActionError, RPCError
 from cdscore.helpers import formatErrorRPCResponse, formatFederationBroadcastRequest, formatRemoteRPCRequest, formatSuccessRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
@@ -118,7 +118,7 @@ class PathConcealer(object):
 
 
 
-class PubSubHub(IModule):
+class PubSubHub(IModule, IPubSubHub):
     '''
     classdocs
     '''
