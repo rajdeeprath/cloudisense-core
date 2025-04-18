@@ -241,6 +241,28 @@ class IFederationGateway(ABC):
     def on_message_handler(self, handler: Callable) -> None:
         """Setter for the on_message_handler."""
         pass
+    
+    
+    @abstractmethod
+    def on_connect_handler(self) -> Callable:
+        """Getter for the on_connect_handler."""
+        pass
+
+    @abstractmethod
+    def on_connect_handler(self, handler: Callable) -> None:
+        """Setter for the on_connect_handler."""
+        pass
+    
+    
+    @abstractmethod
+    def on_disconnect_handler(self) -> Callable:
+        """Getter for the on_disconnect_handler."""
+        pass
+
+    @abstractmethod
+    def on_disconnect_handler(self, handler: Callable) -> None:
+        """Setter for the on_disconnect_handler."""
+        pass
         
 
 
