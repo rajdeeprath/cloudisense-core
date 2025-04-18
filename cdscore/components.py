@@ -1097,9 +1097,15 @@ class MessageRouter(IEventDispatcher):
         requestid = str(uuid.uuid4())
         message =  formatRemoteRPCRequest(requestid, intent, params, service_id, os.environ["CLOUDISENSE_IDENTITY"])
         
-        self.__message_directory.set(requestid, on_response)
+        if on_response:
+            self.__message_directory.set(requestid, on_response)
+            
         federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-        federation.send_message(service_id, message)
+        
+        try:
+            federation.send_message(service_id, message)
+        except Exception as e:
+            self.logger.error(f"Failed to send federation message to {service_id}: {e}")
     
     
     
@@ -1108,7 +1114,11 @@ class MessageRouter(IEventDispatcher):
         requestid = str(uuid.uuid4())
         message =  formatFederationBroadcastRequest(requestid, intent, params, os.environ["CLOUDISENSE_IDENTITY"])
         federation: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-        federation.send_broadcast(message)
+        
+        try:
+            federation.send_broadcast(message)
+        except Exception as e:
+            self.logger.error(f"Failed to send federation broadcast of {str(message)}: {e}")        
         
     
     
@@ -1127,7 +1137,12 @@ class MessageRouter(IEventDispatcher):
             incoming_message: Dict = await self.__incoming_messages.get()
             self.logger.debug(f"Processing message: {incoming_message}")            
             requestid = incoming_message.get("requestid")     
-            origin_id = incoming_message.get("originId")               
+            origin_id = incoming_message.get("originId")  
+            
+            if not requestid:
+                self.logger.warning("Received message without requestid")
+                self.__incoming_messages.task_done()
+                continue             
 
             if self.__message_classifier.is_rpc_response(incoming_message):
                 self.logger.debug(f"RPC response found")                    
