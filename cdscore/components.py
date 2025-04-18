@@ -1126,7 +1126,7 @@ class MessageRouter(IEventDispatcher):
             incoming_message: Dict = await self.__incoming_messages.get()
             self.logger.debug(f"Processing message: {incoming_message}")            
             requestid = incoming_message.get("requestid")     
-            origin_id = incoming_message.get("originId")                   
+            origin_id = incoming_message.get("originId")               
 
             if self.__message_classifier.is_rpc_response(incoming_message):
                 self.logger.debug(f"RPC response found")                    
@@ -1139,7 +1139,7 @@ class MessageRouter(IEventDispatcher):
                         await self.handle_remote_response(message, client)
                     
             elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.info(f"RPC message received from remote service")  
+                self.logger.info(f"RPC message received from remote service {origin_id}")  
                 if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
                     federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
                     remote_client = RemoteMessagingClient(origin_id, federation_gateway)
@@ -1147,7 +1147,7 @@ class MessageRouter(IEventDispatcher):
                     
                     
             elif self.__message_classifier.is_broadcast_rpc(incoming_message):
-                self.logger.info(f"Broadcast message received for everyone")
+                self.logger.info(f"Broadcast message received from {origin_id}")
                 if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
                     await self._handle_broadcast_rpc(incoming_message)
                 
