@@ -905,12 +905,12 @@ class MessageRouter(IEventDispatcher):
         """
         Processes incoming messages and determines how to handle them. 
         """
-        if self.__message_classifier.is_local_rpc(message):
+        if self.__message_classifier.is_broadcast_rpc(message):
+            self.logger.info("Broadcast RPCs are not currently handled.")
+        elif self.__message_classifier.is_local_rpc(message):
             await self._process_local_rpc(message, client)
         elif self.__message_classifier.is_network_rpc(message):
-            await self._process_remote_rpc(message, client)
-        elif self.__message_classifier.is_broadcast_rpc(message):
-            self.logger.info("Broadcast RPCs are not currently handled.")
+            await self._process_remote_rpc(message, client)        
         else:
             self.logger.warning("Received unsupported message format.")
 
@@ -1064,6 +1064,7 @@ class MessageRouter(IEventDispatcher):
         rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
         
         try:
+            self.logger.info(f"Executing broadcast RPC request")
             await rpcgateway.handleRPC(None, message)  # No client context
         except Exception as e:
             self.logger.error(f"Broadcast RPC handling failed: {e}")
