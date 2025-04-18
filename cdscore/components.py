@@ -1064,7 +1064,7 @@ class MessageRouter(IEventDispatcher):
         rpcgateway: IRPCGateway = self.__modules.getModule(RPC_GATEWAY_MODULE)
         
         try:
-            self.logger.info(f"Executing broadcast RPC request")
+            self.logger.debug(f"Executing broadcast RPC request {str(message)}")
             await rpcgateway.handleRPC(None, message)  # No client context
         except Exception as e:
             self.logger.error(f"Broadcast RPC handling failed: {e}")
@@ -1141,13 +1141,13 @@ class MessageRouter(IEventDispatcher):
                     
                     
             elif self.__message_classifier.is_broadcast_rpc(incoming_message):
-                self.logger.info(f"Broadcast message received from {origin_id}")
+                self.logger.debug(f"Broadcast message received from {origin_id}")
                 if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
                     await self._handle_broadcast_rpc(incoming_message)
             
             
             elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.info(f"RPC message received from remote service {origin_id}")  
+                self.logger.debug(f"RPC message received from remote service {origin_id}")  
                 if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
                     federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
                     remote_client = RemoteMessagingClient(origin_id, federation_gateway)
