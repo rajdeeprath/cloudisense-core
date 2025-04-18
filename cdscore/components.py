@@ -1138,19 +1138,19 @@ class MessageRouter(IEventDispatcher):
                         message, client = entry
                         await self.handle_remote_response(message, client)
                     
-            elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.info(f"RPC message received from remote service {origin_id}")  
-                if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-                    federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-                    remote_client = RemoteMessagingClient(origin_id, federation_gateway)
-                    await self._process_local_rpc(incoming_message, remote_client)                
-                    
                     
             elif self.__message_classifier.is_broadcast_rpc(incoming_message):
                 self.logger.info(f"Broadcast message received from {origin_id}")
                 if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
                     await self._handle_broadcast_rpc(incoming_message)
-                
+            
+            
+            elif self.__message_classifier.is_rpc(incoming_message):
+                self.logger.info(f"RPC message received from remote service {origin_id}")  
+                if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+                    federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+                    remote_client = RemoteMessagingClient(origin_id, federation_gateway)
+                    await self._process_local_rpc(incoming_message, remote_client)                                        
             
             else:
                 self.logger.warning(f"Unknown message type received")
