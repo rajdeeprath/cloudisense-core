@@ -263,6 +263,45 @@ class IFederationGateway(ABC):
     def on_client_disconnect_handler(self, handler: Callable) -> None:
         """Setter for the on_client_disconnect_handler."""
         pass
+    
+    
+    @abstractmethod
+    def publish_event(self, topic: str, payload: Dict, qos: int = 0) -> None:
+        """
+        Publishes an event to the specified topic.
+
+        Args:
+            topic (str): The topic to publish the event to.
+            payload (Dict): The message content.
+            qos (int): Quality of Service level (0, 1, or 2). Defaults to 0.
+        """
+        pass
+
+
+    @abstractmethod
+    def subscribe_to_event(self, serviceId: str, topic: str, qos: int = 1) -> None:
+        """
+        Subscribes to an event topic for a given remote service.
+
+        Args:
+            serviceId (str): Identifier of the target service to subscribe to.
+            topic (str): The event topic to subscribe to.
+            qos (int): Quality of Service level (default is 1).
+        """
+        pass
+
+
+    @abstractmethod
+    def unsubscribe_from_event(self, serviceId: str, topic: str, qos: int = 1) -> None:
+        """
+        Unsubscribes from an event topic for a given remote service.
+
+        Args:
+            serviceId (str): Identifier of the target service.
+            topic (str): The topic to unsubscribe from.
+            qos (int): Quality of Service level (default is 1).
+        """
+        pass
         
 
 
@@ -1135,7 +1174,8 @@ class IEventHandler(object):
         pass
     
     
-    async def handleEvent(self, event):
+    @abstractmethod
+    async def handleEvent(self, event:EventType):
         pass
 
 

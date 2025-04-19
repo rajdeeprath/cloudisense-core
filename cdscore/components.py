@@ -890,7 +890,7 @@ class RemoteMessagingClient(IMessagingClient):
 
 
 
-class MessageRouter(IEventDispatcher):
+class MessageRouter(IEventDispatcher, IEventHandler):
     
     def __init__(self, modules: Modules, conf=None, executor: ThreadPoolExecutor = None) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -902,11 +902,23 @@ class MessageRouter(IEventDispatcher):
 
 
     def initialize(self) -> None:
+        
+        self.set_topics_of_interests("*")        
+        self.set_events_of_interests("*")
+            
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
             federation_gateway.on_message_handler = self._handle_remote_message
             
         tornado.ioloop.IOLoop.current().spawn_callback(self.__process_messages)   
+    
+    
+    
+    async def handleEvent(self, event:EventType) -> None:
+        self.logger.debug(f"handleEvent {str(event)}")
+        if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+            federation_gateway.publish_event(topic=event["topic"], payload=event)
     
     
     
