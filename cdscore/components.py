@@ -770,6 +770,11 @@ class MessageClassifier(object):
         """True if the message is an RPC request."""
         return message.get("type") == "rpc"
     
+    def is_subscribe_rpc(self, message: Dict) -> bool:
+        """True if the message is an subscribe request."""
+        return message.get("type") == "rpc" and message.get("intent") == "subscribe_channel"
+    
+    
     def is_local_rpc(self, message: Dict) -> bool:
         """True if the message is an RPC request."""
         return self.is_rpc(message)
@@ -777,6 +782,10 @@ class MessageClassifier(object):
     def is_rpc_response(self, message: Dict) -> bool:
         """True if the message is an RPC response (from service to service or back to client)."""
         return message.get("type") == "rpc_response"
+    
+    def is_event(self, message: Dict) -> bool:
+        """True if the message is an event (push data)."""
+        return message.get("type") == "event"
 
     def is_browser_to_local(self, message: Dict) -> bool:
         """
@@ -914,6 +923,12 @@ class MessageRouter(IEventDispatcher):
         else:
             self.logger.warning("Received unsupported message format.")
 
+
+    async def _process_remote_event(self, topic:str, message: Dict) -> None:
+        self.logger.debug(f"Remote event : {str(message)}")
+        pubsubhub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
+        await pubsubhub.publish(topic, message)
+        
     
     
     async def _process_local_rpc(self, message: Dict, client: IMessagingClient) -> None:
@@ -1126,51 +1141,71 @@ class MessageRouter(IEventDispatcher):
         """
         Background task that continuously processes incoming messages from the queue.
 
+        Responsibilities:
         - Waits for new messages on the `__incoming_messages` queue.
-        - Classifies the message type using the message classifier.
-        - If the message is an RPC response and matches a tracked request ID:
-            - Retrieves the associated client and forwards the response.
-        - Logs and handles other message types such as broadcasts and new RPC requests.
-        - Marks the message as processed via `task_done()` once handling is complete.
+        - Classifies messages using `MessageClassifier`.
+        - Routes messages based on type:
+            - RPC responses: calls registered callback or responds to client.
+            - Broadcast RPCs: fire-and-forget locally if not from self.
+            - RPC requests: executes locally, wraps remote clients as virtual clients.
+            - Event messages: forwards to appropriate handler (e.g., PubSub).
+        - Logs any unrecognized message types.
+        - Always calls `task_done()` after processing.
         """
         while True:
-            incoming_message: Dict = await self.__incoming_messages.get()
-            self.logger.debug(f"Processing message: {incoming_message}")            
-            requestid = incoming_message.get("requestid")     
-            origin_id = incoming_message.get("originId")  
-            
-            if not requestid:
-                self.logger.warning("Received message without requestid")
+            try:
+                incoming_message: Dict = await self.__incoming_messages.get()
+                self.logger.debug(f"Processing message: {incoming_message}")
+
+                requestid = incoming_message.get("requestid")
+                origin_id = incoming_message.get("originId")
+
+                if not requestid and not self.__message_classifier.is_event(incoming_message):
+                    self.logger.warning("Received message without requestid")
+                    continue
+
+                # RPC Response from remote
+                if self.__message_classifier.is_rpc_response(incoming_message):
+                    self.logger.debug("RPC response found")
+                    if self.__message_directory.has(requestid):
+                        entry = self.__message_directory.pop(requestid)
+                        if callable(entry):
+                            await entry(incoming_message)
+                        elif isinstance(entry, tuple):
+                            message, client = entry
+                            await self.handle_remote_response(message, client)
+                    else:
+                        self.logger.warning(f"Untracked RPC response with requestid: {requestid}")
+
+                # Broadcast RPC from another node
+                elif self.__message_classifier.is_broadcast_rpc(incoming_message):
+                    self.logger.debug(f"Broadcast RPC received from {origin_id}")
+                    if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
+                        await self._handle_broadcast_rpc(incoming_message)
+
+                # RPC Request from a remote service
+                elif self.__message_classifier.is_rpc(incoming_message):
+                    self.logger.debug(f"RPC message received from remote service {origin_id}")
+                    # Prevent remote clients from directly subscribing/unsubscribing
+                    if not self.__message_classifier.is_subscribe_rpc(incoming_message):
+                        if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+                            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+                            remote_client = RemoteMessagingClient(origin_id, federation_gateway)
+                            await self._process_local_rpc(incoming_message, remote_client)
+
+                # Event messages from remote
+                elif self.__message_classifier.is_event(incoming_message):
+                    self.logger.debug(f"Event message received from remote service {origin_id}")
+                    topic = incoming_message.get("topic")
+                    if topic and origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+                        await self._process_remote_event(topic, incoming_message)
+
+                else:
+                    self.logger.warning(f"Unknown message type received: {incoming_message.get('type')}")
+
+            except Exception as e:
+                self.logger.error(f"Error while processing message: {e}", exc_info=True)
+
+            finally:
                 self.__incoming_messages.task_done()
-                continue             
-
-            if self.__message_classifier.is_rpc_response(incoming_message):
-                self.logger.debug(f"RPC response found")                    
-                if self.__message_directory.has(requestid):                    
-                    entry = self.__message_directory.pop(requestid)
-                    if callable(entry):
-                        await entry(incoming_message)
-                    elif isinstance(entry, tuple):
-                        message, client = entry
-                        await self.handle_remote_response(message, client)
-                    
-                    
-            elif self.__message_classifier.is_broadcast_rpc(incoming_message):
-                self.logger.debug(f"Broadcast message received from {origin_id}")
-                if origin_id and origin_id != os.environ["CLOUDISENSE_IDENTITY"]:
-                    await self._handle_broadcast_rpc(incoming_message)
-            
-            
-            elif self.__message_classifier.is_rpc(incoming_message):
-                self.logger.debug(f"RPC message received from remote service {origin_id}")  
-                if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-                    federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-                    remote_client = RemoteMessagingClient(origin_id, federation_gateway)
-                    await self._process_local_rpc(incoming_message, remote_client)                                        
-            
-            else:
-                self.logger.warning(f"Unknown message type received")
-
-            
-            self.logger.debug(f"Finished processing message for requestid: {requestid}")
-            self.__incoming_messages.task_done()
+                self.logger.debug(f"Finished processing message for requestid: {requestid}")
