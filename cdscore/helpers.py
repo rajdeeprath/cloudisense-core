@@ -38,25 +38,16 @@ from cdscore.event import DataEvent, SimpleNotificationEvent
 
 def build_federation_topic_path(*parts: str) -> str:
     """
-    Joins multiple string parts into a single MQTT-compatible topic path.
-    
-    Ensures that:
-    - No duplicate slashes are present.
-    - Leading/trailing slashes are trimmed.
-    - All parts are cleanly concatenated.
+    Joins multiple string parts into a single MQTT-compatible topic path,
+    ensuring exactly one leading slash and no duplicate slashes.
 
     Example:
         build_topic_path("cloudisense", "/service", "///status///")
-        -> "cloudisense/service/status"
-
-    Args:
-        *parts (str): Any number of string segments.
-
-    Returns:
-        str: A clean, joined topic path.
+        -> "/cloudisense/service/status"
     """
     cleaned = [part.strip("/") for part in parts if part]
-    return "/".join(cleaned)
+    return "/" + "/".join(cleaned)
+
 
 
 def build_script_topic_path(seed:str, *params:str):
