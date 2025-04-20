@@ -930,6 +930,14 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         pass
     
     
+    
+    async def unsubscribe_remote_event(self, serviceId:str, topic:str)  -> None:
+        if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+            federation_gateway.unsubscribe_from_event(serviceId=serviceId, topic=topic)
+        pass
+    
+    
     async def handle_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
         Processes incoming messages and determines how to handle them. 
