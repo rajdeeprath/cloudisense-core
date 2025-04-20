@@ -41,7 +41,7 @@ from cdscore.constants import *
 from cdscore.event import *
 from cdscore.abstracts import ICloudisenseApplication, IFederationGateway, IMessagingClient, IPubSubHub, IRPCGateway, ITaskExecutor, IntentProvider, IClientChannel, IEventHandler, IEventDispatcher, IModule, IntentProvider
 from cdscore.exceptions import ActionError, RPCError
-from cdscore.helpers import formatErrorRPCResponse, formatFederationBroadcastRequest, formatRemoteRPCRequest, formatSuccessRPCResponse
+from cdscore.helpers import formatErrorRPCResponse, formatFederationBroadcastRequest, formatOutgoingEvent, formatRemoteRPCRequest, formatSuccessRPCResponse
 from cdscore.intent import built_in_intents, INTENT_PREFIX
 from cdscore.action import ACTION_PREFIX, ActionResponse, Action, builtin_action_names, action_from_name
 from cdscore.types import Modules
@@ -918,7 +918,8 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         self.logger.debug(f"handleEvent {str(event)}")
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            federation_gateway.publish_event(topic=event["topic"], payload=event)
+            message:Dict = formatOutgoingEvent(event, os.environ["CLOUDISENSE_IDENTITY"])
+            federation_gateway.publish_event(topic=event["topic"], payload=message)
     
     
     
@@ -1034,7 +1035,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
 
 
 
-    async def _handle_remote_message(self, message: Dict, client: "IMessagingClient" = None) -> None:
+    async def _handle_remote_message(self, topic:str, message: Dict, client: "IMessagingClient" = None) -> None:
         """
         Handles incoming remote messages by adding them to the incoming messages queue.
         

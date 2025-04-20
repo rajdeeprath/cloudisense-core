@@ -32,7 +32,7 @@ from sys import platform
 
 from cdscore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
 from cdscore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from cdscore.event import DataEvent, SimpleNotificationEvent
+from cdscore.event import DataEvent, EventType, SimpleNotificationEvent
 
 
 
@@ -299,6 +299,11 @@ def formatSuccessRPCResponse(requestid, data, code=200):
             "data": data,
             "timestamp":int(datetime.utcnow().timestamp())
             }
+    
+
+def formatOutgoingEvent(event:EventType, originId:str):
+    event["originId"] = originId
+    return event
 
 
 
