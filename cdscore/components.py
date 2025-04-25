@@ -135,6 +135,7 @@ class PubSubHub(IModule, IPubSubHub):
         self.__config = config
         self.__channels = {}
         self.__listeners = []
+        self.__dynamic_topic_config = self.__config["dynamic_topics"]
         pubsub_channels = self.__config["topics"]
         
         for channel_info in pubsub_channels:
@@ -237,9 +238,9 @@ class PubSubHub(IModule, IPubSubHub):
             if self.__config["allow_dynamic_topics"] == True:
                 channel_info = {}
                 channel_info["name"] = topicname  
-                channel_info['type'] = "bidirectional"
-                channel_info["queue_size"] = 1
-                channel_info["max_users"]  = 0
+                channel_info['type'] = self.__dynamic_topic_config["type"]
+                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
+                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
                 self.createChannel(channel_info)
                 if client != None:
                     clients:Set[IMessagingClient] = self.channels[topicname][3] #set
@@ -348,9 +349,9 @@ class PubSubHub(IModule, IPubSubHub):
             if self.__config["allow_dynamic_topics"] == True:
                 channel_info = {}
                 channel_info["name"] = topicname  
-                channel_info['type'] = "bidirectional"
-                channel_info["queue_size"] = 1
-                channel_info["max_users"]  = 0
+                channel_info['type'] = self.__dynamic_topic_config["type"]
+                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
+                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
                 self.createChannel(channel_info)
                 await self.__submit(topicname, message)
             else:
@@ -381,7 +382,15 @@ class PubSubHub(IModule, IPubSubHub):
         if "topic"in event:
             
             if event["topic"] not in self.channels and self.__config["allow_dynamic_topics"] == True:
-                self.createChannel({"name": event["topic"], "type": "bidirectional", "queue_size": 0, "max_users": 0})
+                channel_info = {}
+                channel_info['type'] = self.__dynamic_topic_config["type"]
+                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
+                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
+                
+                self.createChannel({"name": event["topic"], 
+                                    "type": channel_info['type'], 
+                                    "queue_size": channel_info["queue_size"], 
+                                    "max_users": channel_info["max_users"] })
         
             if event["topic"] in self.channels:
                 if is_valid_event(event):
@@ -414,6 +423,7 @@ class PubSubHub(IModule, IPubSubHub):
             
             try:
                 if(not topic in self.channels):
+                    self.logger.info(f"Topic {topic} removed from system. Flusher shutting down.")
                     break
                 
                 channel = self.channels[topic]
