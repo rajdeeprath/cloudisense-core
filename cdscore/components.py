@@ -16,6 +16,7 @@
 
 
 
+import asyncio
 import threading
 import uuid
 import json
@@ -335,7 +336,12 @@ class PubSubHub(IModule, IPubSubHub):
     async def __submit(self, topicname, message):
         if topicname in self.channels:
             msgque:Queue = self.channels[topicname][2] #queue
-            await msgque.put(message)
+            #await msgque.put(message)
+            try:
+                msgque.put_nowait(message)
+            except asyncio.QueueFull:
+                # handle overflow gracefully
+                self.logger.warning(f"Queue full for topic {topicname}, dropping event.")
         pass
     
     
@@ -463,49 +469,6 @@ class PubSubHub(IModule, IPubSubHub):
 
 
 
-@DeprecationWarning
-class VirtualHandler(object):
-    '''
-    Acts as a handler delegate on behalf of client channels
-    '''
-    
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.messages = Queue()
-        self.id = str(uuid.uuid4())
-        self.liveactions = {}
-        self.liveactions['logrecordings'] = set()
-        self.liveactions['scriptexecutions'] = set()
-        self.finished = False
-        tornado.ioloop.IOLoop.current().spawn_callback(self.__run)
-        pass
-    
-    
-    
-    def close(self):
-        self.finished = True
-        pass
-    
-    
-    
-    async def submit(self, message):
-        await self.messages.put(message) 
-        pass
-    
-    
-    
-    async def __run(self):
-        while not self.finished:
-            try:
-                message = await self.messages.get()
-                self.send(message)
-            except Exception as e:
-                pass
-            finally:
-                self.messages.task_done()
-
-
-
 class ActionDispatcher(ITaskExecutor):
     """
     Responsible for registering and executing actions associated with intents.
@@ -562,7 +525,8 @@ class ActionDispatcher(ITaskExecutor):
         if intent_name in self.__action_book:
             raise ValueError("Intent " + intent_name + " is already registered")
 
-        self.__action_book[intent_name] = {"action": action, "requests": Queue(maxsize=5)}
+        queue_size = self.__conf["request_queue_size"]
+        self.__action_book[intent_name] = {"action": action, "requests": Queue(maxsize=queue_size)}
         tornado.ioloop.IOLoop.current().spawn_callback(self.__task_processor, intent_name)
 
     
@@ -1065,8 +1029,14 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         In case of an error, it catches and logs the exception without affecting the message queue.
         """
         try:
-            await self.__incoming_messages.put(message)
-            self.logger.debug(f"Message successfully added to the queue: {message}")
+            # await self.__incoming_messages.put(message)
+            try:
+                self.__incoming_messages.put_nowait(message)
+                self.logger.debug(f"Message successfully added to the queue: {message}")
+            except asyncio.QueueFull:
+                # handle overflow gracefully
+                self.logger.warning(f"Queue full for topic {topic}, dropping event.")                
+            
         except Exception as e:
             self.logger.error(f"Error while adding message to the queue: {e}")
         
