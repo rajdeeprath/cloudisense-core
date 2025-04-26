@@ -136,6 +136,7 @@ class PubSubHub(IModule, IPubSubHub):
         self.__config = config
         self.__channels = {}
         self.__listeners = []
+        self.__message_flush_config = self.__config["message_flush"]
         self.__dynamic_topic_config = self.__config["dynamic_topics"]
         pubsub_channels = self.__config["topics"]
         
@@ -424,48 +425,72 @@ class PubSubHub(IModule, IPubSubHub):
     '''
     Flushes messages from  channel queue into client's message queue actively
     '''
-    async def __flush_messages(self, topic):        
+    async def __flush_messages(self, topic):
+        batch_size = self.__message_flush_config["batch_size"]
+        flush_interval = self.__message_flush_config["interval_seconds"] / 1000
+
         while True:
-            
             try:
-                if(not topic in self.channels):
+                if topic not in self.channels:
                     self.logger.info(f"Topic {topic} removed from system. Flusher shutting down.")
                     break
-                
+
                 channel = self.channels[topic]
-                msgque:Queue = channel[2] #queue
-                clients:Set[IMessagingClient]  = channel[3] #set
-                
-                message = await msgque.get()                
-                
-                if len(clients) > 0:
-                    self.logger.debug("Pushing message %s to %s subscribers...",format(message), len(clients))
-                    
-                    ''' pushing to clients '''
-                    try:    
-                        for client in clients:
-                            await client.message_to_client(message)
+                msgque: Queue = channel[2]  # queue
+                clients: Set[IMessagingClient] = channel[3]  # subscribers
+
+                batch = []
+
+                # Try to build a batch
+                start_time = asyncio.get_event_loop().time()
+
+                while len(batch) < batch_size:
+                    remaining_time = flush_interval - (asyncio.get_event_loop().time() - start_time)
+                    if remaining_time <= 0:
+                        break
+                    try:
+                        message = await asyncio.wait_for(msgque.get(), timeout=remaining_time)
+                        batch.append(message)
+                    except asyncio.TimeoutError:
+                        break  # No more messages right now
+
+                if batch:
+                    if clients:
+                        self.logger.debug(f"Pushing {len(batch)} messages to {len(clients)} subscribers...")
+
+                        #payload = [message for message in batch]  # prepare payload
+                        payload = json.dumps(batch)
+
+                        ''' pushing batch to clients '''
+                        try:
+                            for client in clients:
+                                await client.message_to_client(payload)  # send entire batch at once
+                        except Exception as e:
+                            self.logger.error(f"Error pushing batch to client {client} for topic {topic}. Cause: {str(e)}")
+
+                    ''' pushing each message to listeners '''
+                    try:
+                        for message in batch:
+                            for listener in self.getEventListeners():
+                                if is_valid_event(message):
+                                    await listener._notifyEvent(message)
                     except Exception as e:
-                        logging.error("An error occurred pushing messages to client %s for topic %s. Cause : %s.", str(client), topic, str(e))
-                    
-                
-                ''' pushing to listeners '''
-                try:
-                    for listener in self.getEventListeners():
-                        if is_valid_event(message):
-                            await listener._notifyEvent(message)                            
-                except Exception as e:
-                        self.logger.error("An error occurred notifying %s while reacting to this event.%s", str(listener), str(e))
-                
-            except GeneratorExit as ge:
-                logging.error("GeneratorExit occurred")
+                        self.logger.error(f"Error notifying listeners for topic {topic}: {str(e)}")
+
+                # Always mark all messages as task done
+                for _ in batch:
+                    msgque.task_done()
+
+                await asyncio.sleep(0.01)  # Tiny sleep to avoid CPU burning
+
+            except GeneratorExit:
+                self.logger.info(f"GeneratorExit occurred for topic {topic}, shutting down flusher.")
                 return
-            
-            except Exception as re:
-                logging.error("Unexpected error occurred, which caused by %s", str(re))
-                
-            finally:
-                msgque.task_done()
+
+            except Exception as e:
+                self.logger.error(f"Unexpected error in flusher for topic {topic}: {str(e)}")
+                await asyncio.sleep(0.1)  # recover from temporary error
+
 
 
 
