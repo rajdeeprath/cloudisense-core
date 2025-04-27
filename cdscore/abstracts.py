@@ -112,6 +112,10 @@ class IFileSystemOperator(ABC):
     @abstractmethod
     def write_master_configuration(self, new_config: Dict) -> Dict:
         pass
+    
+    @abstractmethod
+    async def write_file_stream(self, filepath, content, must_exist = False) ->None:
+        pass
 
 
 
@@ -936,6 +940,10 @@ class ILogMonitor(ABC):
     
 
 class ISystemCore(ABC):
+    
+    @abstractmethod
+    async def systemctl_command(self, action: str, service: str) -> None:
+        pass
     
     @abstractmethod
     def get_persistent_id(self, file_path: str = "unique_id.txt") -> str:
