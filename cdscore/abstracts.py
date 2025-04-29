@@ -1274,3 +1274,68 @@ class ICloudisenseApplication(ABC):
     @abstractmethod
     async def handle_socket_message(self, message: Dict, client: 'IMessagingClient') -> None:
         pass
+    
+
+
+class IContainerManagerInterface(ABC):
+    @abstractmethod
+    def start_container(self, container_id: str) -> str:
+        """Start a container given its ID."""
+        pass
+
+    @abstractmethod
+    def stop_container(self, container_id: str) -> str:
+        """Stop a container given its ID."""
+        pass
+
+    @abstractmethod
+    def remove_container(self, container_id: str) -> str:
+        """Remove a container given its ID."""
+        pass
+
+    @abstractmethod
+    def restart_container(self, container_id: str) -> str:
+        """Restart a container given its ID."""
+        pass
+
+    @abstractmethod
+    def inspect_container(self, container_id: str) -> Dict:
+        """Inspect a container and return detailed information."""
+        pass
+
+    @abstractmethod
+    def run_container(
+        self, 
+        image: str, 
+        name: Optional[str] = None, 
+        command: Optional[str] = None, 
+        detach: bool = True, 
+        ports: Optional[Dict[str, int]] = None
+    ) -> str:
+        """Run a new container from an image."""
+        pass
+
+    @abstractmethod
+    def get_swarm_status(self) -> Dict:
+        """Get the current swarm status."""
+        pass
+
+    @abstractmethod
+    def list_swarm_services(self) -> List[Dict]:
+        """List all swarm services."""
+        pass
+
+    @abstractmethod
+    def list_swarm_nodes(self) -> List[Dict]:
+        """List all swarm nodes."""
+        pass
+
+    @abstractmethod
+    def inspect_swarm_service(self, service_id: str) -> Dict:
+        """Inspect a swarm service."""
+        pass
+
+    @abstractmethod
+    def remove_swarm_service(self, service_id: str) -> str:
+        """Remove a swarm service."""
+        pass
