@@ -23,7 +23,7 @@ import asyncio
 from abc import ABC, abstractmethod
 
 from builtins import int, str
-from typing import List, Text, Callable, Dict
+from typing import List, Optional, Text, Callable, Dict
 from abc import abstractmethod
 
 
