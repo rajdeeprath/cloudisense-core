@@ -15,6 +15,7 @@
 # For questions or permissions beyond the scope of this notice, please contact Rajdeep Rath.
 
 
+from argparse import Action
 import string
 import os
 import logging
@@ -400,7 +401,7 @@ class IModule(IEventDispatcher, ITaskExecutor):
     '''
         Returns a list of supported actions
     '''
-    def supported_actions(self) -> List[object]:
+    def supported_actions(self) -> List[Action]:
         return list() 
 
 

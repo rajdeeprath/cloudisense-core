@@ -179,7 +179,7 @@ class PubSubHub(IModule, IPubSubHub):
     '''
         Returns a list of supported actions
     '''
-    def supported_actions(self) -> List[object]:
+    def supported_actions(self) -> List[Action]:
         return []
 
 
