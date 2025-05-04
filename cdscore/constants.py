@@ -113,6 +113,8 @@ REACTION_ENGINE_MODULE = "reaction_engine"
 
 SECURITY_PROVIDER_MODULE = "security_provider"
 
+SMART_ASSIST_MODULE = "smartassist"
+
 
 
 ''' client channel names'''
