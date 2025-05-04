@@ -20,12 +20,31 @@ function ensure_twine_installed {
     fi
 }
 
+
+# Function to ensure necessary packages are updated
+function ensure_latest_tools {
+    echo "🔄 Updating packaging tools (setuptools, wheel, twine, pkginfo)..."
+    if command -v pip &> /dev/null; then
+        pip install --upgrade setuptools wheel twine pkginfo build
+    elif command -v pip3 &> /dev/null; then
+        pip3 install --upgrade setuptools wheel twine pkginfo build
+    else
+        echo "❌ ERROR: Neither pip nor pip3 found. Please install Python and pip."
+        exit 1
+    fi
+}
+
+# Ensure required tools are installed and updated
+ensure_latest_tools
+
 # Target repository (change to testpypi if needed)
-# repository="testpypi"
-repository="pypi"
+repository="testpypi"
+# repository="pypi"
 
 # Path to setup.py
 VERSION_FILE="setup.py"
+
+install="true"
 
 # Function to print error and exit
 function error_exit {
@@ -65,10 +84,15 @@ if [ ! -f "$archive_name" ]; then
     error_exit "Build failed: Expected archive file '$archive_name' not found in dist/."
 fi
 
-echo "✅ Build successful: $archive_name"
+echo "Build successful: $archive_name"
 
-# Upload to PyPI (or testpypi)
-echo "🚀 Uploading package to $repository..."
-twine upload --repository "$repository" --verbose dist/* || error_exit "Upload failed. Please check the logs for details."
 
-echo "🎉 Successfully uploaded archive '$archive_name' to '$repository'."
+if [ "$install" == "true" ]; then
+    echo "Installing locally..."
+    pip install -e .    
+else
+    # Upload to PyPI (or testpypi)
+    echo "🚀 Uploading package to $repository..."
+    twine upload --repository "$repository" --verbose dist/* || error_exit "Upload failed. Please check the logs for details."
+    echo "🎉 Successfully uploaded archive '$archive_name' to '$repository'."
+fi

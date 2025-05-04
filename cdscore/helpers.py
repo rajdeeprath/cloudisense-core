@@ -32,7 +32,21 @@ from sys import platform
 
 from cdscore.constants import OS_TYPE_LINUX, OS_TYPE_MAC, OS_TYPE_WINDOWS
 from cdscore.intent import INTENT_WRITE_LOG_CHUNKS_NAME
-from cdscore.event import DataEvent, SimpleNotificationEvent
+from cdscore.event import DataEvent, EventType, SimpleNotificationEvent
+
+
+
+def build_federation_topic_path(*parts: str) -> str:
+    """
+    Joins multiple string parts into a single MQTT-compatible topic path,
+    ensuring exactly one leading slash and no duplicate slashes.
+
+    Example:
+        build_topic_path("cloudisense", "/service", "///status///")
+        -> "/cloudisense/service/status"
+    """
+    cleaned = [part.strip("/") for part in parts if part]
+    return "/" + "/".join(cleaned)
 
 
 
@@ -279,19 +293,24 @@ def formatAckMQTTResponse(requestid, code=200):
 def formatSuccessRPCResponse(requestid, data, code=200):
     return {
             "requestid": str(requestid),
-            "type": "rpc",
+            "type": "rpc_response",
             "status": "success",
             "code": code,
             "data": data,
             "timestamp":int(datetime.utcnow().timestamp())
             }
+    
+
+def formatOutgoingEvent(event:EventType, originId:str):
+    event["originId"] = originId
+    return event
 
 
 
 def formatErrorRPCResponse(requestid, message, code=400):
     return {
             "requestid": str(requestid),
-            "type": "rpc",
+            "type": "rpc_response",
             "status": "error",
             "code": code,
             "message": message,
@@ -306,6 +325,32 @@ def formatSuccessResponse(data, code=200):
             "timestamp":int(datetime.utcnow().timestamp())
             }
 
+
+def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_service_id:str, originId:str):
+    return {
+            "type": "rpc",
+            "requestid": requestid,
+            "intent": intent,
+            "params": params,
+            "serviceId": target_service_id,
+            "clientId": "__internal__",
+            "originId": originId
+    }
+
+
+
+def formatFederationBroadcastRequest(requestid:str, intent:str, params:dict, originId:str):
+    return {
+            "type": "rpc",
+            "requestid": requestid,
+            "intent": intent,
+            "params": params,
+            "serviceId": "*",
+            "clientId": "__internal__",
+            "originId": originId
+    }
+        
+    
 
 def getTokensAuthorizationTokens(request: httputil.HTTPServerRequest):
     bearer_data:str = request.headers.get("Authorization", None)
