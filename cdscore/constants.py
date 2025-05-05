@@ -97,6 +97,8 @@ TARGET_DELEGATE_MODULE = "target_delegate"
 
 RPC_GATEWAY_MODULE = "rpc_gateway"
 
+FEDERATION_GATEWAY_MODULE = "federation_gateway"
+
 MQTT_GATEWAY_MODULE = "mqtt_gateway"
 
 SMTP_MAILER_MODULE = "smtp_mailer"
@@ -110,6 +112,8 @@ BOT_SERVICE_MODULE = "service_bot"
 REACTION_ENGINE_MODULE = "reaction_engine"
 
 SECURITY_PROVIDER_MODULE = "security_provider"
+
+SMART_ASSIST_MODULE = "smartassist"
 
 
 
