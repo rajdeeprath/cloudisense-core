@@ -24,7 +24,7 @@ from tornado.web import HTTPError
 from cdscore import types
 from cdscore.constants import *
 from cdscore.event import EventType
-from cdscore.abstracts import IPubSubHub, IntentProvider
+from cdscore.abstracts import IPubSubHub, IntentProvider, IMessagingClient
 from cdscore.helpers import *
 
 
@@ -48,6 +48,9 @@ ACTION_REMOVE_CHANNEL_NAME = ACTION_PREFIX + "remove_channel"
 ACTION_CREATE_CHANNEL_NAME = ACTION_PREFIX + "create_channel"
 
 ACTION_PUBLISH_CHANNEL_NAME = ACTION_PREFIX + "publish_channel"
+
+ACTION_SET_SERVICE_OF_INTEREST_NAME = ACTION_PREFIX + "notify_service_of_interest"
+
 
 
 
@@ -107,7 +110,7 @@ class Action(object):
 Returns instances of builtin actions
 '''
 def builtin_actions() -> List[Action]:
-    return [ActionSubcribeChannel(), ActionUnSubcribeChannel(), 
+    return [ActionSetServiceOfInterest(), ActionSubcribeChannel(), ActionUnSubcribeChannel(), 
             ActionCreateChannel(), ActionRemoveChannel(), ActionPublishChannel(), 
             ActionHttpGet(), ActionTest()]
 
@@ -338,3 +341,35 @@ class ActionTest(Action):
 
 
 
+class ActionSetServiceOfInterest(Action):
+    
+    
+    '''
+    Abstract method, must be defined in concrete implementation. action names must be unique
+    '''
+    def name(self) -> Text:
+        return ACTION_SET_SERVICE_OF_INTEREST_NAME
+    
+    
+    
+    '''
+    async method that executes the actual logic
+    '''
+    async def execute(self, requester: IntentProvider, modules: types.Modules, params: dict = None) -> ActionResponse:
+        
+        if not params:
+            raise ValueError("Missing required parameters")
+
+        if "handler" not in params or not isinstance(params["handler"], IMessagingClient):
+            raise ValueError("Invalid or missing 'handler' in parameters")
+
+        if "serviceId" not in params or not isinstance(params["serviceId"], str) or not params["serviceId"].strip():
+            raise ValueError("Invalid or missing 'serviceId' in parameters")
+
+        client: IMessagingClient = params["handler"]
+        serviceId: str = params["serviceId"].strip()
+
+        self.logger.debug(f"Setting service of interest for client {client.id} to {serviceId}")
+        client.set_service_of_interest(serviceId)
+
+        return ActionResponse(data=None, events=[])
