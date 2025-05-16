@@ -1029,7 +1029,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 raise ConnectionError("Federation not connected")
             
             if requestid:
-                self.__message_directory.set(requestid, tuple(message, client))  # Track for response mapping
+                self.__message_directory.set(requestid, (message, client))  # Track for response mapping
                 
 
             target_service_id = message["serviceId"]
