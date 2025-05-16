@@ -145,11 +145,13 @@ class IMessagingClient(ABC):
         pass
     
     
+
+class IServiceConsumer(ABC):
+    
     @abstractmethod
     def set_service_of_interest(self, serviceId: str) -> None:
         """Declares the service id that the client is primarily interested in."""
-        pass  
-    
+        pass
 
 
 
