@@ -1034,7 +1034,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
 
             target_service_id = message["serviceId"]
             
-            await federation_gateway.send_message(target_service_id, message)
+            federation_gateway.send_message(target_service_id, message)
             self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
         except Exception as e:
             self.logger.error(f"Failed to forward RPC: {e}")
