@@ -1069,8 +1069,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         
     
     
-    
-    async def handle_remote_response(self, response: Dict) -> None:
+    async def handle_remote_response(self, response: Dict, client:IMessagingClient) -> None:
         """
         Handles RPC responses received from remote services via the Federation Gateway.
 
@@ -1086,7 +1085,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                             - 'result' or 'error': Response payload or error message.
         """
         requestid = response.get("requestid")
-        client: IMessagingClient = self.__message_directory.pop(requestid, None)
+        #client: IMessagingClient = self.__message_directory.pop(requestid, None)
 
         if not client:
             self.logger.warning(f"No client found for request ID: {requestid}")
