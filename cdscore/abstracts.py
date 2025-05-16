@@ -313,6 +313,22 @@ class IFederationGateway(ABC):
             qos (int): Quality of Service level (default is 1).
         """
         pass
+    
+    
+    @abstractmethod
+    def get_federation_clients(self) -> List[Dict]:
+        """
+        Abstract method to retrieve a list of connected federation clients.
+
+        This method must be implemented by any concrete subclass.
+        The returned list should contain dictionaries with at least:
+            - 'label': A human-readable name for the node (e.g., "Local", "Node-A")
+            - 'serviceId': A unique identifier for the federation client (string or UUID)
+
+        Returns:
+            List[Dict]: A list of federation client info dictionaries.
+        """
+        pass
         
 
 

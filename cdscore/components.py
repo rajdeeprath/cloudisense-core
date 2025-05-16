@@ -776,7 +776,7 @@ class MessageClassifier(object):
     
     def is_local_rpc(self, message: Dict) -> bool:
         """True if the message is an RPC request."""
-        return self.is_rpc(message)
+        return self.is_rpc(message) and message.get("serviceId") == os.environ["CLOUDISENSE_IDENTITY"]
 
     def is_rpc_response(self, message: Dict) -> bool:
         """True if the message is an RPC response (from service to service or back to client)."""
@@ -937,6 +937,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         pass
     
     
+    
     async def handle_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
         Processes incoming messages and determines how to handle them. 
@@ -949,6 +950,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
             await self._process_remote_rpc(message, client)        
         else:
             self.logger.warning("Received unsupported message format.")
+
 
 
     async def _process_remote_event(self, topic:str, message: Dict) -> None:
