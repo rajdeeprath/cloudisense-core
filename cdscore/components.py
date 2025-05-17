@@ -1069,7 +1069,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         
     
     
-    async def handle_remote_response(self, response: Dict, client:IMessagingClient) -> None:
+    async def handle_remote_response(self, request:Dict, response: Dict, client:IMessagingClient) -> None:
         """
         Handles RPC responses received from remote services via the Federation Gateway.
 
@@ -1207,7 +1207,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                             await entry(incoming_message)
                         elif isinstance(entry, tuple):
                             message, client = entry
-                            await self.handle_remote_response(message, client)
+                            await self.handle_remote_response(message, incoming_message, client)
                     else:
                         self.logger.warning(f"Untracked RPC response with requestid: {requestid}")
 
