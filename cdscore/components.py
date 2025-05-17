@@ -1095,7 +1095,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
             message = response.get("error")
             await client.message_to_client(formatErrorRPCResponse(requestid, message))
         else:
-            result = response.get("result")
+            result = response.get("data")
             await client.message_to_client(formatSuccessRPCResponse(requestid, result))
 
 
