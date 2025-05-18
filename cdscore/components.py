@@ -912,51 +912,148 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         tornado.ioloop.IOLoop.current().spawn_callback(self.__process_messages)   
     
     
-    
-    async def handleEvent(self, event:EventType) -> None:
+    async def handleEvent(self, event: EventType) -> None:
+        """
+        Handles an incoming event by checking if the federation gateway module is available
+        and, if so, publishing the event to the appropriate topic.
+
+        Args:
+            event (EventType): The event object to handle. It is expected to be a dictionary-like
+                            structure containing at least a "topic" key.
+
+        Process:
+        - Logs the received event at debug level.
+        - Checks if the `FEDERATION_GATEWAY_MODULE` is available in the module registry.
+        - If the module is present:
+            - Formats the event into an outgoing message, tagging it with the current instance's identity.
+            - Publishes the formatted message to the corresponding MQTT (or other) topic using the federation gateway.
+
+        Returns:
+            None
+        """
         self.logger.debug(f"handleEvent {str(event)}")
+
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            message:Dict = formatOutgoingEvent(event, os.environ["CLOUDISENSE_IDENTITY"])
+            message: Dict = formatOutgoingEvent(event, os.environ["CLOUDISENSE_IDENTITY"])
             federation_gateway.publish_event(topic=event["topic"], payload=message)
+
+     
     
     
-    
-    async def subscribe_remote_event(self, serviceId:str, topic:str)  -> None:
+    async def subscribe_remote_event(self, serviceId: str, topic: str) -> None:
+        """
+        Subscribes to a remote event from a specific service via the federation gateway.
+
+        Args:
+            serviceId (str): The identifier of the remote service (CloudiSENSE node) from which
+                            to subscribe to events.
+            topic (str): The event topic to subscribe to.
+
+        Process:
+        - Checks if the `FEDERATION_GATEWAY_MODULE` is available in the loaded modules.
+        - If the module exists:
+            - Retrieves the federation gateway instance.
+            - Calls the gateway's `subscribe_to_event()` method to initiate a remote subscription
+            for the specified topic from the given service ID.
+
+        Returns:
+            None
+        """
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
             federation_gateway.subscribe_to_event(serviceId=serviceId, topic=topic)
-        pass
-    
-    
-    
-    async def unsubscribe_remote_event(self, serviceId:str, topic:str)  -> None:
+
+
+       
+    async def unsubscribe_remote_event(self, serviceId: str, topic: str) -> None:
+        """
+        Unsubscribes from a previously subscribed remote event from a specific service 
+        via the federation gateway.
+
+        Args:
+            serviceId (str): The identifier of the remote service (CloudiSENSE node) 
+                            from which the event subscription should be removed.
+            topic (str): The event topic to unsubscribe from.
+
+        Process:
+        - Checks if the `FEDERATION_GATEWAY_MODULE` is available in the loaded modules.
+        - If the module exists:
+            - Retrieves the federation gateway instance.
+            - Calls the gateway's `unsubscribe_from_event()` method to cancel the 
+            remote subscription for the specified topic from the given service ID.
+
+        Returns:
+            None
+        """
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
             federation_gateway.unsubscribe_from_event(serviceId=serviceId, topic=topic)
-        pass
+    
     
     
     
     async def handle_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
-        Processes incoming messages and determines how to handle them. 
+        Processes an incoming message and determines the appropriate handling strategy 
+        based on its classification (broadcast, local, or network RPC).
+
+        Args:
+            message (Dict): The incoming message dictionary to be classified and processed.
+            client (IMessagingClient): The messaging client interface used to respond 
+                                    or interact with the message source.
+
+        Process:
+        - Checks the type of RPC message using the internal message classifier.
+        - If it is a **broadcast RPC**:
+            - Currently not supported; logs an info message.
+        - If it is a **local RPC**:
+            - Passes the message to `_process_local_rpc()` for local processing.
+        - If it is a **network RPC**:
+            - Forwards the message to `_process_remote_rpc()` for network-level handling.
+        - If the message doesn't match any known type:
+            - Logs a warning about the unsupported message format.
+
+        Returns:
+            None
         """
         if self.__message_classifier.is_broadcast_rpc(message):
             self.logger.info("Broadcast RPCs are not currently handled.")
         elif self.__message_classifier.is_local_rpc(message):
             await self._process_local_rpc(message, client)
         elif self.__message_classifier.is_network_rpc(message):
-            await self._process_remote_rpc(message, client)        
+            await self._process_remote_rpc(message, client)
         else:
             self.logger.warning("Received unsupported message format.")
 
 
 
-    async def _process_remote_event(self, topic:str, message: Dict) -> None:
+
+    async def _process_remote_event(self, topic: str, message: Dict) -> None:
+        """
+        Handles a remote event by publishing it to the local Pub/Sub hub.
+
+        Args:
+            topic (str): The topic under which the event should be published locally.
+            message (Dict): The event payload received from a remote source.
+
+        Process:
+        - Logs the received remote event at debug level.
+        - Retrieves the `PubSubHub` module instance from the registered modules.
+        - Publishes the message to the local system under the specified topic via the Pub/Sub hub.
+
+        Purpose:
+        This method is used to bridge remote events into the local event system, allowing
+        distributed CloudiSENSE nodes to propagate events across instances.
+
+        Returns:
+            None
+        """
         self.logger.debug(f"Remote event : {str(message)}")
-        pubsubhub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
+
+        pubsubhub: IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
         await pubsubhub.publish(topic, message)
+
         
     
     
