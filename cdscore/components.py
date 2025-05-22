@@ -1092,6 +1092,61 @@ class MessageRouter(IEventDispatcher, IEventHandler):
             except:
                 self.logger.warning(f"Unable to write message to client {client.id}")
 
+    
+    # Work in progress
+    async def subscribe_remote_log(self, message: Dict, client: IMessagingClient) -> None:
+
+        if not self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+            await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
+            return
+
+        # append additional properties
+        message["clientId"] = client.id
+        message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
+
+        try:
+            requestid = message.get("requestid")
+            target_service_id = message.get("serviceId")   
+            topic = message.get("params", {}).get("topic")
+        
+            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+            
+            if not federation_gateway.is_connected():
+                raise ConnectionError("Federation not connected")
+            
+            if not requestid:
+                raise ValueError("Request ID nort provided")
+            
+            if not topic:
+                raise ValueError("Log stream topci not specified")
+            
+            future = asyncio.get_event_loop().create_future()
+            self.__message_directory.set(requestid, (message, client, future))  # Track for response mapping
+            federation_gateway.send_message(target_service_id, message)
+            
+            self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
+            
+            try:
+                response = await asyncio.wait_for(future, timeout=10)
+                self.logger.debug(f"response : {str(response)}")
+                await self.handle_remote_response(message, response, client)
+            except asyncio.TimeoutError:
+                err = "Timed out waiting for RPC ACK"
+                self.logger.error(err)
+                msg = formatErrorRPCResponse(requestid, err)
+                await client.message_to_client(msg)
+                return
+            
+            federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)                                    
+            
+            pubsub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
+            pubsub.subscribe(topic, client)
+            self.logger.info(f"Subscribed to expected event topic: {topic}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to forward RPC: {e}")
+            if requestid:
+                await client.message_to_client(formatErrorRPCResponse(requestid, str(e)))
 
     
     
@@ -1108,35 +1163,54 @@ class MessageRouter(IEventDispatcher, IEventHandler):
             message (Dict): The RPC message to forward, expected to contain 'requestid' and 'serviceId'.
             client (IMessagingClient): The client that initiated the request.
         """
+        requestid = message.get("requestid")
+
         if not self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-            await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
+            if requestid:
+                await client.message_to_client(formatErrorRPCResponse(requestid, "Feature unavailable"))
             return
 
-        federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-
-        # append additional properties
-        message["clientId"] = client.id
-        message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
-
-        requestid = message.get("requestid")
-        
-
         try:
+            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+
             if not federation_gateway.is_connected():
                 raise ConnectionError("Federation not connected")
-            
-            if requestid:
-                self.__message_directory.set(requestid, (message, client))  # Track for response mapping
-                
+
+            if not requestid:
+                raise ValueError("Request ID not provided")
+
+            future = asyncio.get_event_loop().create_future()
+            self.__message_directory.set(requestid, (message, client, future))
 
             target_service_id = message["serviceId"]
-            
+            message["clientId"] = client.id
+            message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
+
             federation_gateway.send_message(target_service_id, message)
             self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
+
+            try:
+                response = await asyncio.wait_for(future, timeout=10)
+                self.logger.debug(f"response : {str(response)}")
+                await self.handle_remote_response(message, response, client)
+            except asyncio.TimeoutError:
+                err = "Timed out waiting for RPC ACK"
+                self.logger.error(err)
+                msg = formatErrorRPCResponse(requestid, err)
+                await client.message_to_client(msg)
+                return
+
         except Exception as e:
             self.logger.error(f"Failed to forward RPC: {e}")
             if requestid:
                 await client.message_to_client(formatErrorRPCResponse(requestid, str(e)))
+
+        finally:
+            # Always clean up to avoid dangling futures
+            entry = self.__message_directory.pop(requestid, None)
+            if isinstance(entry, tuple) and len(entry) == 3 and isinstance(entry[2], asyncio.Future):
+                if not entry[2].done():
+                    entry[2].cancel()
 
 
 
@@ -1300,13 +1374,31 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                     self.logger.debug("RPC response found")
                     if self.__message_directory.has(requestid):
                         entry = self.__message_directory.pop(requestid)
+                        
+                        # if entry is a function -> call it
                         if callable(entry):
                             await entry(incoming_message)
+
                         elif isinstance(entry, tuple):
-                            message, client = entry
-                            await self.handle_remote_response(message, incoming_message, client)
+                            if len(entry) == 3:
+                                message, client, future = entry
+                                if isinstance(future, asyncio.Future):
+                                    self.logger.debug(f"Resolving future for requestid: {requestid}")
+                                    future.set_result(incoming_message)
+                                else:
+                                    self.logger.warning(f"Expected Future as third element, got {type(future)}")
+                            elif len(entry) == 2:
+                                message, client = entry
+                                await self.handle_remote_response(message, incoming_message, client)
+                            else:
+                                self.logger.error(f"Unexpected tuple length ({len(entry)}) for requestid: {requestid}")
+
+                        else:
+                            self.logger.error(f"Unsupported entry type in __message_directory for requestid: {requestid} ({type(entry)})")
+
                     else:
                         self.logger.warning(f"Untracked RPC response with requestid: {requestid}")
+
 
                 # Broadcast RPC from another node
                 elif self.__message_classifier.is_broadcast_rpc(incoming_message):
