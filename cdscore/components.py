@@ -1093,60 +1093,198 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 self.logger.warning(f"Unable to write message to client {client.id}")
 
     
-    # Work in progress
-    async def subscribe_remote_log(self, message: Dict, client: IMessagingClient) -> None:
+    
+    async def subscribe_remote_event(self, message: Dict, client: IMessagingClient):
+        """
+        Handles a client request to subscribe to a remote event stream (e.g., logs, metrics,etc).
+
+        This is a high-level entrypoint that delegates to a generic internal method
+        which performs validation, message forwarding, and subscription handling via
+        the Federation Gateway and local Pub/Sub hub.
+
+        -------------------------
+        Expected `message` format:
+        -------------------------
+        {
+            "requestid": "<unique-request-id>",
+            "serviceId": "<target-remote-service-id>",
+            "params": {
+                "topic": "<event-topic-name>"
+            }
+        }
+
+        -------------------------
+        Behavior:
+        -------------------------
+        - Validates federation and connectivity.
+        - Forwards the RPC to the remote service.
+        - Waits for an ACK response (timeout after 10s).
+        - On success, subscribes to the specified event topic:
+            - Remotely via the Federation Gateway.
+            - Locally via the internal Pub/Sub system.
+        - Any errors are reported back to the client.
+
+        Args:
+            message (Dict): The incoming RPC message from the client.
+            client (IMessagingClient): The connected client instance.
+
+        Raises:
+            Sends a formatted error response back to the client if validation fails or federation is unreachable.
+        """
+        await self._handle_remote_event_subscription(message, client, action="subscribe")
+
+    
+    
+    
+    async def unsubscribe_remote_event(self, message: Dict, client: IMessagingClient):
+        """
+        Handles a client request to unsubscribe from a remote event stream (e.g., logs, metrics, etc).
+
+        This method is the counterpart to `subscribe_remote_event()` and uses a shared internal handler
+        to coordinate communication with the Federation Gateway and internal Pub/Sub system.
+
+        -------------------------
+        Expected `message` format:
+        -------------------------
+        {
+            "requestid": "<unique-request-id>",
+            "serviceId": "<target-remote-service-id>",
+            "params": {
+                "topic": "<event-topic-name>"
+            }
+        }
+
+        -------------------------
+        Behavior:
+        -------------------------
+        - Validates federation connectivity and request structure.
+        - Forwards the unsubscribe RPC to the remote service.
+        - Waits for an ACK response (timeout after 10s).
+        - On success, unsubscribes from the specified event topic:
+            - Remotely via the Federation Gateway.
+            - Locally via the internal Pub/Sub system.
+        - Any errors or failures are reported back to the client.
+
+        Args:
+            message (Dict): The incoming RPC message from the client.
+            client (IMessagingClient): The connected client instance.
+
+        Raises:
+            Sends a formatted error response to the client if request validation fails, 
+            federation is unreachable, or the unsubscribe operation times out.
+        """
+        await self._handle_remote_event_subscription(message, client, action="unsubscribe")
+
+    
+    
+    
+    async def _handle_remote_event_subscription(
+        self,
+        message: Dict,
+        client: IMessagingClient,
+        action: str  # either "subscribe" or "unsubscribe"
+    ) -> None:
+        """
+        Generic handler to subscribe or unsubscribe a client to/from a remote event topic via Federation Gateway.
+
+        Supported actions: 'subscribe', 'unsubscribe'.
+
+        ---------------------
+        Workflow:
+        ---------------------
+        1. Validate that the Federation Gateway module is enabled and connected.
+        2. Extract required fields from the message:
+        - `requestid`: for tracking and response correlation.
+        - `serviceId`: the remote target service to contact.
+        - `params.topic`: the name of the event topic to subscribe/unsubscribe.
+        3. Enrich the message with client metadata:
+        - `clientId`: to identify the source client.
+        - `originId`: to identify the local CloudiSENSE node.
+        4. Register the request and future in the internal message directory.
+        5. Forward the RPC message to the remote service using the federation gateway.
+        6. Wait asynchronously (with timeout) for an ACK or response from the remote service.
+        7. If response is received:
+        - Call `subscribe_to_event()` or `unsubscribe_from_event()` on the federation gateway.
+        - Call `pubsub.subscribe()` or `pubsub.unsubscribe()` to update local delivery.
+        8. If timeout or error occurs:
+        - Send an error message to the client.
+        9. Log each stage for traceability.
+
+        Args:
+            message (Dict): RPC request from the client, containing:
+                - 'requestid': Unique request identifier.
+                - 'serviceId': ID of the remote service.
+                - 'params.topic': Event topic to subscribe/unsubscribe.
+            client (IMessagingClient): The client initiating the request.
+            action (str): Either 'subscribe' or 'unsubscribe'.
+
+        Raises:
+            Sends an error response to the client if:
+            - Required fields are missing or invalid.
+            - Federation is disconnected.
+            - Timeout occurs while waiting for a response.
+            - An unsupported action is specified.
+        """
+        requestid = message.get("requestid")
 
         if not self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-            await client.message_to_client(formatErrorRPCResponse(message["requestid"], "Feature unavailable"))
+            if requestid:
+                await client.message_to_client(formatErrorRPCResponse(requestid, "Feature unavailable"))
             return
 
-        # append additional properties
-        message["clientId"] = client.id
-        message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
-
         try:
-            requestid = message.get("requestid")
-            target_service_id = message.get("serviceId")   
+            target_service_id = message.get("serviceId")
             topic = message.get("params", {}).get("topic")
-        
+
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            
+
             if not federation_gateway.is_connected():
                 raise ConnectionError("Federation not connected")
-            
+
             if not requestid:
-                raise ValueError("Request ID nort provided")
-            
+                raise ValueError("Request ID not provided")
+
             if not topic:
-                raise ValueError("Log stream topci not specified")
-            
+                raise ValueError("Event topic not specified")
+
+            message["clientId"] = client.id
+            message["originId"] = os.environ["CLOUDISENSE_IDENTITY"]
+
             future = asyncio.get_event_loop().create_future()
-            self.__message_directory.set(requestid, (message, client, future))  # Track for response mapping
+            self.__message_directory.set(requestid, (message, client, future))
+
             federation_gateway.send_message(target_service_id, message)
-            
-            self.logger.info(f"Forwarded RPC to remote service: {target_service_id}")
-            
+            self.logger.debug(f"Forwarded RPC '{action}' to remote service: {target_service_id}")
+
             try:
                 response = await asyncio.wait_for(future, timeout=10)
                 self.logger.debug(f"response : {str(response)}")
                 await self.handle_remote_response(message, response, client)
             except asyncio.TimeoutError:
-                err = "Timed out waiting for RPC ACK"
+                err = f"Timed out waiting for RPC '{action}' ACK"
                 self.logger.error(err)
-                msg = formatErrorRPCResponse(requestid, err)
-                await client.message_to_client(msg)
+                await client.message_to_client(formatErrorRPCResponse(requestid, err))
                 return
-            
-            federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)                                    
-            
-            pubsub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
-            pubsub.subscribe(topic, client)
-            self.logger.info(f"Subscribed to expected event topic: {topic}")
+
+            pubsub: IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
+
+            if action == "subscribe":
+                federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)
+                pubsub.subscribe(topic, client)
+                self.logger.debug(f"Subscribed to event topic: {topic}")
+            elif action == "unsubscribe":
+                federation_gateway.unsubscribe_from_event(serviceId=target_service_id, topic=topic)
+                pubsub.unsubscribe(topic, client)
+                self.logger.debug(f"Unsubscribed from event topic: {topic}")
+            else:
+                raise ValueError(f"Unknown action: {action}")
 
         except Exception as e:
-            self.logger.error(f"Failed to forward RPC: {e}")
+            self.logger.error(f"Failed to handle RPC '{action}': {e}")
             if requestid:
                 await client.message_to_client(formatErrorRPCResponse(requestid, str(e)))
+
+ 
 
     
     
