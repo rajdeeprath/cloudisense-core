@@ -232,72 +232,125 @@ class PubSubHub(IModule, IPubSubHub):
 
     def getEventListeners(self)->List[IEventHandler]:
         return self.__listeners
-       
-        
-    def subscribe(self, topicname, client:IMessagingClient = None):
-        
-        if topicname not in self.channels:
-            if self.__config["allow_dynamic_topics"] == True:
-                channel_info = {}
-                channel_info["name"] = topicname  
-                channel_info['type'] = self.__dynamic_topic_config["type"]
-                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
-                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
-                self.createChannel(channel_info)
-                if client != None:
-                    clients:Set[IMessagingClient] = self.channels[topicname][3] #set
-                    clients.add(client);                
-                    self.logger.info("Total clients in %s = %d", topicname, len(clients))
-            else:
-                self.logger.error("Topic channel %s does not exist and cannot be created either", topicname)
+    
+    
+    def _format_topic_with_identity(self, identity: str, topicname: str) -> str:
+        """
+        Constructs a fully qualified topic path with optional identity prefix.
+
+        If identity is provided, the topic will be prefixed with it (e.g., "/node-1/logs/error").
+        If identity is None or empty, only the topic will be used (e.g., "/logs/error").
+
+        Ensures the result starts with a single '/' and no duplicate slashes appear.
+
+        Args:
+            identity (str): The identity (e.g., service or node name). Optional.
+            topicname (str): The raw topic string.
+
+        Returns:
+            str: A normalized topic string.
+        """
+        clean_topic = topicname.lstrip('/')
+        if identity:
+            clean_identity = identity.strip('/')
+            return f"/{clean_identity}/{clean_topic}"
         else:
-            clients:Set[IMessagingClient] = self.channels[topicname][3] #set
-            clients.add(client);                
-            self.logger.info("Total clients in %s = %d", topicname, len(clients))
-        pass
+            return f"/{clean_topic}"
+
+
+        
+
+    def subscribe(self, topicname: str, client: IMessagingClient = None, to_identity: Optional[str] = None):
+        """
+        Subscribes a client to a namespaced topic channel.
+
+        The topic is automatically prefixed with the target identity (default: local node identity).
+        If the topic channel does not exist and dynamic topic creation is enabled,
+        it will be created using the default configuration.
+
+        Args:
+            topicname (str): The raw topic name to subscribe to (e.g., "logs/system").
+            client (IMessagingClient, optional): The client to subscribe to the topic.
+            to_identity (str, optional): The identity to prefix the topic with. If None, uses CLOUDISENSE_IDENTITY.
+        """
+        topic = self._format_topic_with_identity(to_identity, topicname)
+
+        if topic not in self.channels:
+            if self.__config.get("allow_dynamic_topics", False):
+                default_cfg = self.__dynamic_topic_config
+                channel_info = {
+                    "name": topic,
+                    "type": default_cfg["type"],
+                    "queue_size": default_cfg["queue_size"],
+                    "max_users": default_cfg["max_users"]
+                }
+                self.createChannel(channel_info)
+                self.logger.info("Created dynamic channel for topic: %s", topic)
+            else:
+                self.logger.error("Topic channel '%s' does not exist and dynamic topics are disabled", topic)
+                return
+
+        if client is not None:
+            clients: Set[IMessagingClient] = self.channels[topic][3]  # assume index 3 holds the client set
+            clients.add(client)
+            self.logger.info("Client subscribed to topic '%s'. Total clients: %d", topic, len(clients))
+
+        
     
-    
-    '''
+    def subscribe_topics(self, topics:List[str], client:IMessagingClient, to_identity: Optional[str] = None):
+        '''
         Client subscribe to multiple topics
-    ''' 
-    def subscribe_topics(self, topics, client:IMessagingClient):
+        ''' 
         for topicname in topics:
-            self.subscribe(topicname, client)
+            self.subscribe(topicname, client, to_identity)
             pass    
+   
+   
+    
+    def unsubscribe(self, topicname: str, client: IMessagingClient, to_identity: Optional[str] = None):
+        """
+        Unsubscribes a client from a namespaced topic channel.
+
+        The topic is automatically prefixed with the given identity (or defaults to the local node's
+        CLOUDISENSE_IDENTITY). If the topic exists, the client is removed from its subscriber set.
+
+        Args:
+            topicname (str): The raw topic name to unsubscribe from.
+            client (IMessagingClient): The client to be removed.
+            to_identity (str, optional): The identity to prefix the topic with. Defaults to local identity.
+        """
+        topic = self._format_topic_with_identity(to_identity, topicname)
+
+        if topic in self.channels:
+            clients: Set[IMessagingClient] = self.channels[topic][3]  # assume index 3 holds the client set
+            clients.discard(client)
+            self.logger.info("Client unsubscribed from topic '%s'. Total clients: %d", topic, len(clients))
+
+            # Optional: remove dynamic channel if no clients remain
+            # if len(clients) == 0 and self.is_dynamic_channel(topic):
+            #     self.removeChannel(topic)
+        else:
+            self.logger.warning("Attempted to unsubscribe from unknown topic '%s'", topic)
     
     
-    '''
-        Client unsubscribes from topic
-    '''
-    def unsubscribe(self, topicname, client:IMessagingClient):
-        if topicname in self.channels:
-            clients:Set[IMessagingClient] = self.channels[topicname][3] #set
-            clients.discard(client);
-            self.logger.info("Total clients in %s = %d", topicname, len(clients))
-            
-            '''
-            if len(clients) == 0 and self.is_dynamic_channel(topicname):
-                self.removeChannel(topicname)
-            '''
-        pass
     
-    
-    
-    '''
-        clear all subscriptions
-    '''
+
     def clearsubscriptions(self, client:IMessagingClient):
+        '''
+        clear all subscriptions
+        '''
         for key in list(self.channels):
             self.logger.info("Clearing subscriptions in topic %s", key)
             self.unsubscribe(key, client)
         pass
     
     
-    
-    '''
-        Creates a dynamic bidirectional communication channel
-    '''
+   
+   
     def createChannel(self, channel_info, channel_type="bidirectional"):
+        '''
+        Creates a dynamic bidirectional communication channel
+        '''
         if "name" in channel_info and not channel_info["name"] in self.channels:
             topicname = channel_info["name"]
             topictype = channel_type
@@ -310,10 +363,11 @@ class PubSubHub(IModule, IPubSubHub):
         pass
     
     
-    '''
-        Removes a communication channel
-    '''
+
     def removeChannel(self, topicname):
+        '''
+        Removes a communication channel
+        '''
         for k in list(self.channels.keys()):
             if k == topicname:
                 channel = self.channels[topicname]
@@ -331,10 +385,11 @@ class PubSubHub(IModule, IPubSubHub):
     
     
     
-    '''
-        Accepts data submission for topic
-    '''
+
     async def __submit(self, topicname, message):
+        '''
+        Accepts data submission for topic
+        '''
         if topicname in self.channels:
             msgque:Queue = self.channels[topicname][2] #queue
             #await msgque.put(message)
@@ -346,65 +401,93 @@ class PubSubHub(IModule, IPubSubHub):
         pass
     
     
-    '''
-        Publishes data to a specified topic, if it exists.
-        If topic channel does not exist, it is created based on configuration
-        parameter `allow_dynamic_topic`
-    '''
-    async def publish(self, topicname, message, client:IMessagingClient=None):
-        if topicname not in self.channels:
-            if self.__config["allow_dynamic_topics"] == True:
-                channel_info = {}
-                channel_info["name"] = topicname  
-                channel_info['type'] = self.__dynamic_topic_config["type"]
-                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
-                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
-                self.createChannel(channel_info)
-                await self.__submit(topicname, message)
-            else:
-                self.logger.error("Topic channel does not exist and cannot be created either")
-        else:
-            await self.__submit(topicname, message)
-        pass
-    
-    
-    '''
+
+    async def publish_notification(self, event):
+        '''
         Publishes event data to a events channel -
         *To be deprecated in favor of new event system*
-    '''
-    async def publish_notification(self, event):
+        '''
         if TOPIC_NOTIFICATION in self.channels:
             if self.__isValidEvent(event):
                 await self.__submit(TOPIC_NOTIFICATION, event)
         pass
     
     
-    
-    
-    '''
-        Publishes event to designated channel
-    '''
-    async def publish_event_type(self, event:EventType):
-        
-        if "topic"in event:
-            
-            if event["topic"] not in self.channels and self.__config["allow_dynamic_topics"] == True:
-                channel_info = {}
-                channel_info['type'] = self.__dynamic_topic_config["type"]
-                channel_info["queue_size"] = self.__dynamic_topic_config["queue_size"]
-                channel_info["max_users"]  = self.__dynamic_topic_config["max_users"]
-                
-                self.createChannel({"name": event["topic"], 
-                                    "type": channel_info['type'], 
-                                    "queue_size": channel_info["queue_size"], 
-                                    "max_users": channel_info["max_users"] })
-        
-            if event["topic"] in self.channels:
-                if is_valid_event(event):
-                    await self.__submit(event["topic"], event)
-            pass
-    
-    
+
+    async def publish(self, topicname: str, message, client: IMessagingClient = None):
+        """
+        Publishes a message to the specified topic channel.
+
+        If the topic does not exist and dynamic topic creation is enabled,
+        a new channel is created with default configuration.
+
+        Args:
+            topicname (str): The name of the topic to publish to.
+            message: The message payload to be submitted.
+            client (IMessagingClient, optional): The originating client (if applicable).
+        """
+        if topicname not in self.channels:
+            if self.__config.get("allow_dynamic_topics", False):
+                default_cfg = self.__dynamic_topic_config
+                channel_info = {
+                    "name": topicname,
+                    "type": default_cfg["type"],
+                    "queue_size": default_cfg["queue_size"],
+                    "max_users": default_cfg["max_users"]
+                }
+                self.createChannel(channel_info)
+                self.logger.debug(f"Created dynamic channel for topic: {topicname}")
+            else:
+                self.logger.error(f"Topic '{topicname}' does not exist and dynamic topics are disabled.")
+                return
+
+        await self.__submit(topicname, message)
+
+
+
+
+
+    async def publish_event(self, event: EventType, for_identity: str = None):
+        """
+        Publishes a **local event** to its associated topic channel.
+
+        The topic will be prefixed with the identity of the publisher (default: this node's
+        CLOUDISENSE_IDENTITY) to ensure consistent topic namespacing.
+
+        If the topic is not yet registered and dynamic topic creation is allowed,
+        a new channel will be created using default configuration.
+
+        Args:
+            event (EventType): The event dictionary, expected to contain a 'topic' field.
+            for_identity (str, optional): Identity to prefix the topic with. Defaults to the local node's identity.
+        """
+        raw_topic = event.get("topic")
+        if not raw_topic:
+            return
+
+        # Use provided identity or fallback to this node's identity
+        identity = for_identity or os.environ.get("CLOUDISENSE_IDENTITY", "")
+
+        topic = self._format_topic_with_identity(identity, raw_topic)
+
+        # Optionally update the event with the fully qualified topic
+        event["topic"] = topic
+
+        # Create dynamic channel if needed
+        if topic not in self.channels and self.__config.get("allow_dynamic_topics", False):
+            default_cfg = self.__dynamic_topic_config
+            self.createChannel({
+                "name": topic,
+                "type": default_cfg["type"],
+                "queue_size": default_cfg["queue_size"],
+                "max_users": default_cfg["max_users"]
+            })
+
+        # Submit if valid and channel exists
+        if topic in self.channels and is_valid_event(event):
+            await self.__submit(topic, event)
+
+
     
     
     
@@ -673,9 +756,10 @@ class ActionDispatcher(ITaskExecutor):
             if executable:
                 del executable
             if events:
-                pubsub = self.__modules.getModule(PUBSUBHUB_MODULE)
+                pubsub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
                 for event in events:
-                    await pubsub.publish_event_type(event)
+                    await pubsub.publish_event(event)
+
 
     
     def merge_parameters(self, params, event: EventType):
@@ -691,6 +775,7 @@ class ActionDispatcher(ITaskExecutor):
         """
         return {**params, EVENT_KEY: event}
 
+    
     
     async def __task_processor(self, intent_name):
         """
@@ -732,9 +817,9 @@ class ActionDispatcher(ITaskExecutor):
                 if requestid in self.__request_register:
                     del self.__request_register[requestid]
                 if events:
-                    pubsub = self.__modules.getModule(PUBSUBHUB_MODULE)
+                    pubsub:IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
                     for event in events:
-                        await pubsub.publish_event_type(event)
+                        await pubsub.publish_event(event)
 
 
 class SafeLookupStore:
@@ -923,7 +1008,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
     
     async def handleEvent(self, event: EventType) -> None:
         """
-        Handles an incoming event by checking if the federation gateway module is available
+        Handles an incoming local event by checking if the federation gateway module is available
         and, if so, publishing the event to the appropriate topic.
 
         Args:

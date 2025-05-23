@@ -1061,17 +1061,17 @@ class IPubSubHub(ABC):
         pass
 
     @abstractmethod
-    def subscribe(self, topicname: str, client: IMessagingClient = None) -> None:
+    def subscribe(self, topicname: str, client: IMessagingClient = None, to_identity: Optional[str] = None):
         """Subscribes a client to a specific topic."""
         pass
 
     @abstractmethod
-    def subscribe_topics(self, topics: List[str], client: IMessagingClient) -> None:
+    def subscribe_topics(self, topics: List[str], client: IMessagingClient, to_identity: Optional[str] = None) -> None:
         """Subscribes a client to multiple topics."""
         pass
 
     @abstractmethod
-    def unsubscribe(self, topicname: str, client: IMessagingClient) -> None:
+    def unsubscribe(self, topicname: str, client: IMessagingClient, to_identity: Optional[str] = None):
         """Unsubscribes a client from a specific topic."""
         pass
 
@@ -1101,7 +1101,7 @@ class IPubSubHub(ABC):
         pass
 
     @abstractmethod
-    async def publish_event_type(self, event: EventType) -> None:
+    async def publish_event(self, event: EventType, for_identity: str = None):
         """Publishes a structured event to all subscribed clients."""
         pass
 
