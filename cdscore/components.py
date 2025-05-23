@@ -765,13 +765,20 @@ class MessageClassifier(object):
         super().__init__()
         
     
+    
     def is_rpc(self, message: Dict) -> bool:
         """True if the message is an RPC request."""
         return message.get("type") == "rpc"
     
-    def is_subscribe_rpc(self, message: Dict) -> bool:
+    
+    def is_subscribe_channel_rpc(self, message: Dict) -> bool:
         """True if the message is an subscribe request."""
         return message.get("type") == "rpc" and message.get("intent") == "subscribe_channel"
+    
+    
+    def is_unsubscribe_channel_rpc(self, message: Dict) -> bool:
+        """True if the message is an unsubscribe request."""
+        return message.get("type") == "rpc" and message.get("intent") == "unsubscribe_channel"
     
     
     def is_local_rpc(self, message: Dict) -> bool:
@@ -782,10 +789,12 @@ class MessageClassifier(object):
         """True if the message is an RPC response (from service to service or back to client)."""
         return message.get("type") == "rpc_response"
     
+    
     def is_event(self, message: Dict) -> bool:
         """True if the message is an event (push data)."""
         return message.get("type") == "event"
 
+    
     def is_browser_to_local(self, message: Dict) -> bool:
         """
         Client ➝ Local Service
@@ -898,7 +907,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         self.__message_directory = SafeLookupStore()
         self.__incoming_messages = Queue()   
         self.initialize() 
-
+        
 
     def initialize(self) -> None:
         
@@ -1022,10 +1031,14 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         elif self.__message_classifier.is_local_rpc(message):
             await self._process_local_rpc(message, client)
         elif self.__message_classifier.is_network_rpc(message):
-            await self._process_remote_rpc(message, client)
+            if self.__message_classifier.is_subscribe_channel_rpc(message):
+                await self.subscribe_remote_event(message, client)
+            elif self.__message_classifier.is_unsubscribe_channel_rpc(message):
+                await self.unsubscribe_remote_event(message, client)
+            else:
+                await self._process_remote_rpc(message, client)
         else:
             self.logger.warning("Received unsupported message format.")
-
 
 
 
@@ -1548,7 +1561,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 elif self.__message_classifier.is_rpc(incoming_message):
                     self.logger.debug(f"RPC message received from remote service {origin_id}")
                     # Prevent remote clients from directly subscribing/unsubscribing
-                    if not self.__message_classifier.is_subscribe_rpc(incoming_message):
+                    if not self.__message_classifier.is_subscribe_channel_rpc(incoming_message):
                         if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
                             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
                             remote_client = RemoteMessagingClient(origin_id, federation_gateway)
