@@ -1561,11 +1561,11 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 elif self.__message_classifier.is_rpc(incoming_message):
                     self.logger.debug(f"RPC message received from remote service {origin_id}")
                     # Prevent remote clients from directly subscribing/unsubscribing
-                    if not self.__message_classifier.is_subscribe_channel_rpc(incoming_message):
-                        if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-                            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-                            remote_client = RemoteMessagingClient(origin_id, federation_gateway)
-                            await self._process_local_rpc(incoming_message, remote_client)
+                    #if not self.__message_classifier.is_subscribe_channel_rpc(incoming_message):
+                    if origin_id and self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
+                        federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
+                        remote_client = RemoteMessagingClient(origin_id, federation_gateway)
+                        await self._process_local_rpc(incoming_message, remote_client)
 
                 # Event messages from remote
                 elif self.__message_classifier.is_event(incoming_message):
