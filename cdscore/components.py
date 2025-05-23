@@ -1280,15 +1280,16 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 return
 
             pubsub: IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
+            service_event_topic = f"{target_service_id}/{topic}"
 
             if action == "subscribe":
                 federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)
-                pubsub.subscribe(topic, client)
-                self.logger.debug(f"Subscribed to event topic: {topic}")
+                pubsub.subscribe(service_event_topic, client)
+                self.logger.debug(f"Subscribed to event topic: {service_event_topic}")
             elif action == "unsubscribe":
                 federation_gateway.unsubscribe_from_event(serviceId=target_service_id, topic=topic)
-                pubsub.unsubscribe(topic, client)
-                self.logger.debug(f"Unsubscribed from event topic: {topic}")
+                pubsub.unsubscribe(service_event_topic, client)
+                self.logger.debug(f"Unsubscribed from event topic: {service_event_topic}")
             else:
                 raise ValueError(f"Unknown action: {action}")
 
