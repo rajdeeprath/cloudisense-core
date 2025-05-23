@@ -1280,7 +1280,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 return
 
             pubsub: IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
-            service_event_topic = f"{target_service_id}/{topic}"
+            service_event_topic = federation_gateway.get_local_subscribable_topic(serviceId=target_service_id, topic=topic)
 
             if action == "subscribe":
                 federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)

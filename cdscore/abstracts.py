@@ -290,6 +290,20 @@ class IFederationGateway(ABC):
         """
         pass
 
+    
+    @abstractmethod
+    def get_local_subscribable_topic(self, serviceId: str, topic: str) -> str:
+        """
+        Returns a normalized topic string by joining serviceId and topic with a single slash.
+
+        Ensures no double slashes between components.
+
+        Example:
+            "svc1/", "/logs" → "svc1/logs"
+        """
+        pass
+
+
 
     @abstractmethod
     def subscribe_to_event(self, serviceId: str, topic: str, qos: int = 1) -> None:
