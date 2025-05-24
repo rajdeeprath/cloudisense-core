@@ -974,14 +974,37 @@ class RemoteMessagingClient(IMessagingClient):
         if not self._federation.is_client_online(self._id):
             raise ConnectionError(f"Cannot send message: client is not connected to federation anymore (target: {self.id})")
 
-        is_event = message.get("type") == "event"
+        is_event = self.is_event_message(message)
         
         if is_event:
-            topic = message.get("topic")
-            if topic:
+            if isinstance(message, list):
+                for individual_message in message:
+                    topic = message.get("topic")
+                    self._federation.send_event(topic, message)
+            else:
+                topic = message.get("topic")
                 self._federation.send_event(topic, message)
         else:
             self._federation.send_message(self._id, message)
+
+
+
+    def is_event_message(self, message) -> bool:
+        """
+        Determines if the input message is an event or a list of events.
+
+        Returns True if:
+        - message is a dict with type == "event"
+        - OR message is a list with at least one dict element whose type == "event"
+        """
+        if isinstance(message, list) and len(message) > 0:
+            first_item = message[0]
+            return isinstance(first_item, dict) and first_item.get("type") == "event"
+        
+        if isinstance(message, dict):
+            return message.get("type") == "event"
+
+        return False
 
 
     
