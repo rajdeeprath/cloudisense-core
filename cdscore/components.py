@@ -964,6 +964,11 @@ class RemoteMessagingClient(IMessagingClient):
         """
         return self._id
 
+
+    '''
+    NOTE: This should be improved  -> multiple events in batch should be sendable
+    over the mqtt channel. This will utilize bandwidth better.
+    '''
     async def message_to_client(self, message: Dict) -> None:
         """
         Sends the response back to the origin via the Federation Gateway.
@@ -979,8 +984,8 @@ class RemoteMessagingClient(IMessagingClient):
         if is_event:
             if isinstance(message, list):
                 for individual_message in message:
-                    topic = message.get("topic")
-                    self._federation.send_event(topic, message)
+                    topic = individual_message.get("topic")
+                    self._federation.send_event(topic, individual_message)
             else:
                 topic = message.get("topic")
                 self._federation.send_event(topic, message)
