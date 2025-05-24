@@ -974,8 +974,14 @@ class RemoteMessagingClient(IMessagingClient):
         if not self._federation.is_client_online(self._id):
             raise ConnectionError(f"Cannot send message: client is not connected to federation anymore (target: {self.id})")
 
+        is_event = message.get("type") == "event"
         
-        self._federation.send_message(self._id, message)
+        if is_event:
+            topic = message.get("topic")
+            if topic:
+                self._federation.send_event(topic, message)
+        else:
+            self._federation.send_message(self._id, message)
 
 
     
