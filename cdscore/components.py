@@ -542,7 +542,7 @@ class PubSubHub(IModule, IPubSubHub):
                         self.logger.debug(f"Pushing {len(batch)} messages to {len(clients)} subscribers...")
 
                         #payload = [message for message in batch]  # prepare payload
-                        payload = json.dumps(batch)
+                        payload = batch #json.dumps(batch)
 
                         ''' pushing batch to clients '''
                         try:
