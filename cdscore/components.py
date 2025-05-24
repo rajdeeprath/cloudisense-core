@@ -1435,7 +1435,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
 
 
 
-    async def _handle_remote_message(self, topic:str, message: Dict, client: "IMessagingClient" = None) -> None:
+    def _handle_remote_message(self, topic:str, message: Dict, client: "IMessagingClient" = None) -> None:
         """
         Handles incoming remote messages by adding them to the incoming messages queue.
         
