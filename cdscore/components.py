@@ -1030,7 +1030,8 @@ class MessageRouter(IEventDispatcher, IEventHandler):
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
             message: Dict = formatOutgoingEvent(event, os.environ["CLOUDISENSE_IDENTITY"])
-            federation_gateway.publish_event(topic=event["topic"], payload=message)
+            topic:str = event["topic"]
+            federation_gateway.publish_event(topic=topic, payload=message)
 
      
     
