@@ -1069,60 +1069,7 @@ class MessageRouter(IEventDispatcher, IEventHandler):
             topic:str = event["topic"]
             federation_gateway.send_event(topic=topic, payload=message)
 
-     
-    
-    
-    async def subscribe_remote_event(self, serviceId: str, topic: str) -> None:
-        """
-        Subscribes to a remote event from a specific service via the federation gateway.
-
-        Args:
-            serviceId (str): The identifier of the remote service (CloudiSENSE node) from which
-                            to subscribe to events.
-            topic (str): The event topic to subscribe to.
-
-        Process:
-        - Checks if the `FEDERATION_GATEWAY_MODULE` is available in the loaded modules.
-        - If the module exists:
-            - Retrieves the federation gateway instance.
-            - Calls the gateway's `subscribe_to_event()` method to initiate a remote subscription
-            for the specified topic from the given service ID.
-
-        Returns:
-            None
-        """
-        if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            federation_gateway.subscribe_to_event(serviceId=serviceId, topic=topic)
-
-
        
-    async def unsubscribe_remote_event(self, serviceId: str, topic: str) -> None:
-        """
-        Unsubscribes from a previously subscribed remote event from a specific service 
-        via the federation gateway.
-
-        Args:
-            serviceId (str): The identifier of the remote service (CloudiSENSE node) 
-                            from which the event subscription should be removed.
-            topic (str): The event topic to unsubscribe from.
-
-        Process:
-        - Checks if the `FEDERATION_GATEWAY_MODULE` is available in the loaded modules.
-        - If the module exists:
-            - Retrieves the federation gateway instance.
-            - Calls the gateway's `unsubscribe_from_event()` method to cancel the 
-            remote subscription for the specified topic from the given service ID.
-
-        Returns:
-            None
-        """
-        if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
-            federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            federation_gateway.unsubscribe_from_event(serviceId=serviceId, topic=topic)
-    
-    
-    
     
     async def handle_messages(self, message: Dict, client: IMessagingClient) -> None:
         """
@@ -1402,16 +1349,15 @@ class MessageRouter(IEventDispatcher, IEventHandler):
                 return
 
             pubsub: IPubSubHub = self.__modules.getModule(PUBSUBHUB_MODULE)
-            service_event_topic = federation_gateway.get_local_subscribable_topic(serviceId=target_service_id, topic=topic)
 
             if action == "subscribe":
-                federation_gateway.subscribe_to_event(serviceId=target_service_id, topic=topic)
-                pubsub.subscribe(service_event_topic, client)
-                self.logger.debug(f"Subscribed to event topic: {service_event_topic}")
+                federation_gateway.subscribe_to_event(topic=topic)
+                pubsub.subscribe(topic, client)
+                self.logger.debug(f"Subscribed to event topic: {topic}")
             elif action == "unsubscribe":
-                federation_gateway.unsubscribe_from_event(serviceId=target_service_id, topic=topic)
-                pubsub.unsubscribe(service_event_topic, client)
-                self.logger.debug(f"Unsubscribed from event topic: {service_event_topic}")
+                federation_gateway.unsubscribe_from_event(topic=topic)
+                pubsub.unsubscribe(topic, client)
+                self.logger.debug(f"Unsubscribed from event topic: {topic}")
             else:
                 raise ValueError(f"Unknown action: {action}")
 
