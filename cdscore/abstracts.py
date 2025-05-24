@@ -279,7 +279,7 @@ class IFederationGateway(ABC):
     
     
     @abstractmethod
-    def publish_event(self, topic: str, payload: Dict, qos: int = 0) -> None:
+    def send_event(self, topic: str, payload: Dict, qos: int = 0) -> None:
         """
         Publishes an event to the specified topic.
 

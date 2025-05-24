@@ -951,7 +951,6 @@ class RemoteMessagingClient(IMessagingClient):
         self._federation = federation
 
 
-
     def is_closed(self) -> bool:
         """
         Always returns False — federation is considered always available for routing.
@@ -975,7 +974,14 @@ class RemoteMessagingClient(IMessagingClient):
         if not self._federation.is_client_online(self._id):
             raise ConnectionError(f"Cannot send message: client is not connected to federation anymore (target: {self.id})")
 
-        self._federation.send_message(self._id, message)
+        is_event = (message.get("type") == "event")
+        
+        if is_event:
+            topic = message["topic"]
+            self._federation.send_event(topic, message)
+        else:
+            self._federation.send_message(self._id, message)
+
 
     
     def __repr__(self):
@@ -1029,9 +1035,10 @@ class MessageRouter(IEventDispatcher, IEventHandler):
 
         if self.__modules.hasModule(FEDERATION_GATEWAY_MODULE):
             federation_gateway: IFederationGateway = self.__modules.getModule(FEDERATION_GATEWAY_MODULE)
-            message: Dict = formatOutgoingEvent(event, os.environ["CLOUDISENSE_IDENTITY"])
+            identity:str = os.environ["CLOUDISENSE_IDENTITY"]
+            message: Dict = formatOutgoingEvent(event, identity)
             topic:str = event["topic"]
-            federation_gateway.publish_event(topic=topic, payload=message)
+            federation_gateway.send_event(topic=topic, payload=message)
 
      
     
