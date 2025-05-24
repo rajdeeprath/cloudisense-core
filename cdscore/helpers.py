@@ -21,7 +21,7 @@ import filetype
 import base64
 
 
-from typing import Dict
+from typing import Any, Dict
 from tornado import httputil
 from urllib import parse
 from jsonschema import validate
@@ -255,7 +255,7 @@ def base64ToString(b):
 
 
 
-def formatSuccessMQTTResponse(requestid, data={}, code=200):
+def formatSuccessMQTTResponse(requestid, data={}, code=200)-> Dict[str, Any]:
     return {
             "session-id": str(requestid),
             "type": "mqtt",
@@ -267,7 +267,7 @@ def formatSuccessMQTTResponse(requestid, data={}, code=200):
 
 
 
-def formatErrorMQTTResponse(requestid, message, code=400):
+def formatErrorMQTTResponse(requestid, message, code=400)-> Dict[str, Any]:
     return {
             "session-id": str(requestid),
             "type": "mqtt",
@@ -279,7 +279,7 @@ def formatErrorMQTTResponse(requestid, message, code=400):
 
 
 
-def formatAckMQTTResponse(requestid, code=200):
+def formatAckMQTTResponse(requestid, code=200)-> Dict[str, Any]:
     return {
             "session-id": str(requestid),
             "type": "mqtt",
@@ -290,7 +290,7 @@ def formatAckMQTTResponse(requestid, code=200):
 
 
 
-def formatSuccessRPCResponse(requestid, data, code=200):
+def formatSuccessRPCResponse(requestid, data, code=200)-> Dict[str, Any]:
     return {
             "requestid": str(requestid),
             "type": "rpc_response",
@@ -307,7 +307,7 @@ def formatOutgoingEvent(event:EventType, originId:str):
 
 
 
-def formatErrorRPCResponse(requestid, message, code=400):
+def formatErrorRPCResponse(requestid, message, code=400)-> Dict[str, Any]:
     return {
             "requestid": str(requestid),
             "type": "rpc_response",
@@ -317,7 +317,7 @@ def formatErrorRPCResponse(requestid, message, code=400):
             "timestamp":int(datetime.utcnow().timestamp())
             }
     
-def formatSuccessResponse(data, code=200):
+def formatSuccessResponse(data, code=200)-> Dict[str, Any]:
     return {
             "status": "success",
             "code": code,
@@ -326,7 +326,7 @@ def formatSuccessResponse(data, code=200):
             }
 
 
-def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_service_id:str, originId:str):
+def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_service_id:str, originId:str)-> Dict[str, Any]:
     return {
             "type": "rpc",
             "requestid": requestid,
@@ -339,7 +339,7 @@ def formatRemoteRPCRequest(requestid:str, intent:str, params:dict, target_servic
 
 
 
-def formatFederationBroadcastRequest(requestid:str, intent:str, params:dict, originId:str):
+def formatFederationBroadcastRequest(requestid:str, intent:str, params:dict, originId:str)-> Dict[str, Any]:
     return {
             "type": "rpc",
             "requestid": requestid,
@@ -364,7 +364,7 @@ def getTokensAuthorizationTokens(request: httputil.HTTPServerRequest):
     pass
 
 
-def formatProgressResponse(permit, data):
+def formatProgressResponse(permit, data)-> Dict[str, Any]:
     return {
             "permit": permit,
             "code": 200,
@@ -376,7 +376,7 @@ def formatProgressResponse(permit, data):
             }
 
 
-def formatErrorResponse(message, code):
+def formatErrorResponse(message, code)-> Dict[str, Any]:
     return {
             "status": "error",
             "code": code,
